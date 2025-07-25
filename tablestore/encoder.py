@@ -53,11 +53,20 @@ COMPARATOR_TYPE_MAP = {
     ComparatorType.GREATER_EQUAL  : filter_pb2.CT_GREATER_EQUAL,
     ComparatorType.LESS_THAN      : filter_pb2.CT_LESS_THAN,
     ComparatorType.LESS_EQUAL     : filter_pb2.CT_LESS_EQUAL,
+    ComparatorType.EXIST          : filter_pb2.CT_EXIST,
+    ComparatorType.NOT_EXIST      : filter_pb2.CT_NOT_EXIST,
+}
+
+CAST_TYPE_MAP = {
+    CastType.VT_INTEGER      : filter_pb2.VT_INTEGER,
+    CastType.VT_DOUBLE       : filter_pb2.VT_DOUBLE,
+    CastType.VT_STRING       : filter_pb2.VT_STRING,
 }
 
 COLUMN_CONDITION_TYPE_MAP = {
-    ColumnConditionType.COMPOSITE_COLUMN_CONDITION : filter_pb2.FT_COMPOSITE_COLUMN_VALUE,
-    ColumnConditionType.SINGLE_COLUMN_CONDITION  : filter_pb2.FT_SINGLE_COLUMN_VALUE,
+    ColumnConditionType.COMPOSITE_COLUMN_CONDITION     : filter_pb2.FT_COMPOSITE_COLUMN_VALUE,
+    ColumnConditionType.SINGLE_COLUMN_CONDITION        : filter_pb2.FT_SINGLE_COLUMN_VALUE,
+    ColumnConditionType.SINGLE_COLUMN_REGEX_CONDITION  : filter_pb2.FT_SINGLE_COLUMN_VALUE,
 }
 
 DIRECTION_MAP = {
@@ -298,18 +307,27 @@ class OTSProtoBufferEncoder(object):
         global COMPARATOR_TYPE_MAP
         enum_map = COMPARATOR_TYPE_MAP
 
-        proto.comparator = enum_map.get(condition.comparator)
+        proto.comparator = enum_map.get(condition.get_comparator())
         if proto.comparator is None:
             raise OTSClientError(
                 "ComparatorType should be one of [%s], not %s" % (
-                    ", ".join(list(enum_map.keys())), str(condition.comparator)
+                    ", ".join(list(enum_map.keys())), str(condition.get_comparator())
                 )
             )
+        if isinstance(condition, SingleColumnRegexCondition) and condition.get_regex_rule() is not None:
+            value_trans_rule_proto = proto.value_trans_rule
+            value_trans_rule_proto.regex = self._get_unicode(condition.get_regex_rule().get_regex())
+            global CAST_TYPE_MAP
+            value_trans_rule_proto.cast_type = CAST_TYPE_MAP.get(condition.get_regex_rule().get_cast_type())
+            if value_trans_rule_proto.cast_type is None:
+                raise OTSClientError("cast_type should be one of [%s], not %s" % (
+                    ", ".join(list(CAST_TYPE_MAP.keys())), str(condition.get_regex_rule().get_cast_type())
+                ))
 
-        proto.column_name = self._get_unicode(condition.column_name)
-        proto.column_value = bytes(PlainBufferBuilder.serialize_column_value(condition.column_value))
-        proto.filter_if_missing = not condition.pass_if_missing
-        proto.latest_version_only = condition.latest_version_only
+        proto.column_name = self._get_unicode(condition.get_column_name())
+        proto.column_value = bytes(PlainBufferBuilder.serialize_column_value(condition.get_column_value()))
+        proto.filter_if_missing = not condition.get_pass_if_missing()
+        proto.latest_version_only = condition.get_latest_version_only()
 
         return proto.SerializeToString()
 
@@ -338,11 +356,12 @@ class OTSProtoBufferEncoder(object):
         # condition
         if isinstance(column_condition, CompositeColumnCondition):
             proto.filter = self._make_composite_condition(column_condition)
-        elif isinstance(column_condition, SingleColumnCondition):
+        elif isinstance(column_condition, SingleColumnCondition) or \
+                isinstance(column_condition, SingleColumnRegexCondition):
             proto.filter = self._make_relation_condition(column_condition)
         else:
             raise OTSClientError(
-                "expect CompositeColumnCondition, SingleColumnCondition but not %s"
+                "expect CompositeColumnCondition, SingleColumnCondition, SingleColumnRegexCondition but not %s"
                 % column_condition.__class__.__name__
             )
 
@@ -1056,7 +1075,7 @@ class OTSProtoBufferEncoder(object):
         proto.path = nested_filter.path
         self._make_query(proto.filter, nested_filter.query_filter)
 
-    def _encode_search(self, table_name, index_name, search_query, columns_to_get, routing_keys):
+    def _encode_search(self, table_name, index_name, search_query, columns_to_get, routing_keys, timeout_s):
         proto = search_pb2.SearchRequest()
         proto.table_name = table_name
         proto.index_name = index_name
@@ -1069,6 +1088,13 @@ class OTSProtoBufferEncoder(object):
         if routing_keys is not None:
             for routing_key in routing_keys:
                 proto.routing_values.append(bytes(PlainBufferBuilder.serialize_primary_key(routing_key)))
+
+        if timeout_s is not None:
+            if not isinstance(timeout_s, int) and not isinstance(timeout_s, float):
+                raise OTSClientError("timeout_s must be an integer or float")
+            if timeout_s < 0:
+                raise OTSClientError("timeout_s must be a non-negative integer")
+            proto.timeout_ms = int(timeout_s * 1000)
 
         return proto
 
@@ -1084,7 +1110,7 @@ class OTSProtoBufferEncoder(object):
 
         return proto
 
-    def _encode_parallel_scan(self, table_name, index_name, scan_query, session_id, columns_to_get):
+    def _encode_parallel_scan(self, table_name, index_name, scan_query, session_id, columns_to_get, timeout_s):
         proto = search_pb2.ParallelScanRequest()
 
         if table_name is None:
@@ -1106,12 +1132,21 @@ class OTSProtoBufferEncoder(object):
         if session_id is not None:
             proto.session_id = bytes(session_id.encode('utf-8'))
 
+        if timeout_s is not None:
+            if not isinstance(timeout_s, int) and not isinstance(timeout_s, float):
+                raise OTSClientError("timeout_s must be an integer or float")
+            if timeout_s < 0:
+                raise OTSClientError("timeout_s must be a non-negative integer")
+            proto.timeout_ms = int(timeout_s * 1000)
+
         return proto
 
     def _encode_match_query(self, query):
         proto = search_pb2.MatchQuery()
         proto.field_name = self._get_unicode(query.field_name)
         proto.text = self._get_unicode(query.text)
+        if query.weight is not None:
+            proto.weight = query.weight
 
         if query.minimum_should_match is not None:
             proto.minimum_should_match = query.minimum_should_match
@@ -1125,12 +1160,18 @@ class OTSProtoBufferEncoder(object):
         proto = search_pb2.MatchPhraseQuery()
         proto.field_name = self._get_unicode(query.field_name)
         proto.text = self._get_unicode(query.text)
+        if query.weight is not None:
+            proto.weight = query.weight
+
         return proto.SerializeToString()
 
     def _encode_term_query(self, query):
         proto = search_pb2.TermQuery()
         proto.field_name = self._get_unicode(query.field_name)
         proto.term = bytes(PlainBufferBuilder.serialize_column_value(query.column_value))
+        if query.weight is not None:
+            proto.weight = query.weight
+
         return proto.SerializeToString()
 
     def _encode_range_query(self, query):
@@ -1153,6 +1194,9 @@ class OTSProtoBufferEncoder(object):
         proto = search_pb2.PrefixQuery()
         proto.field_name = self._get_unicode(query.field_name)
         proto.prefix = self._get_unicode(query.prefix)
+        if query.weight is not None:
+            proto.weight = query.weight
+
         return proto.SerializeToString()
 
     def _encode_bool_query(self, query):
@@ -1188,6 +1232,9 @@ class OTSProtoBufferEncoder(object):
         if query.inner_hits is not None:
             self._make_inner_hits(proto.inner_hits, query.inner_hits)
 
+        if query.weight is not None:
+            proto.weight = query.weight
+
         return proto.SerializeToString()
 
     def _make_inner_hits(self, proto, inner_hits):
@@ -1207,6 +1254,9 @@ class OTSProtoBufferEncoder(object):
         proto = search_pb2.WildcardQuery()
         proto.field_name = self._get_unicode(query.field_name)
         proto.value = self._get_unicode(query.value)
+        if query.weight is not None:
+            proto.weight = query.weight
+
         return proto.SerializeToString()
 
     def _encode_match_all_query(self, query):
@@ -1238,6 +1288,9 @@ class OTSProtoBufferEncoder(object):
         proto.field_name = query.field_name
         for column_value in query.column_values:
             proto.terms.append(bytes(PlainBufferBuilder.serialize_column_value(column_value)))
+
+        if query.weight is not None:
+            proto.weight = query.weight
         return proto.SerializeToString()
 
     def _make_function_value_factor(self, proto, value_factor):
@@ -1258,6 +1311,8 @@ class OTSProtoBufferEncoder(object):
         proto = search_pb2.KnnVectorQuery()
         proto.field_name = self._get_unicode(query.field_name)
         proto.top_k = self._get_int32(query.top_k)
+        if query.weight is not None:
+            proto.weight = query.weight
 
         if query.float32_query_vector is not None:
             proto.float32_query_vector.extend(query.float32_query_vector)

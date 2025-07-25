@@ -33,8 +33,9 @@ def batch_write_row(client,table_name,tp):
     
 class SqlQueryTest(APITestBase):
     def test_sql_query(self):
-        """对SQL执行结果进行测试"""
+        """Test the execution results of SQL"""
         table_name = 'SqlQuery' + self.get_python_version()
+        self.delete_table_and_index()
         table_meta = TableMeta(table_name, [('uid', 'STRING'),('pid', 'INTEGER')])
         reserved_throughput = ReservedThroughput(CapacityUnit(
             restriction.MinReadWriteCapacityUnit,
@@ -113,8 +114,9 @@ class SqlQueryTest(APITestBase):
         self.client_test.delete_table(table_name)
     
     def test_fbs_decoder_types(self):
-        """对fbs decoder结果进行测试"""
+        """Test the fbs decoder result"""
         table_name = 'fbsDecoderTypes' + self.get_python_version()
+        self.delete_table_and_index()
         table_meta = TableMeta(table_name, [('uid', 'STRING'),('pid', 'BINARY')])
         reserved_throughput = ReservedThroughput(CapacityUnit(
             restriction.MinReadWriteCapacityUnit,
@@ -142,7 +144,7 @@ class SqlQueryTest(APITestBase):
             for i in range(0, 10):
                 gt = [('uid',str(i)),('pid',bytearray(i)),('name','somebody'+str(i)), ('age',i%3),
                                 ('grade',i+0.2),('isMale',i%2==0),('picture',bytearray(i))]
-            self.assert_equal(ret[i].sort(), gt.sort())
+                self.assert_equal(ret[i].sort(), gt.sort())
 
         batch_write_row(self.client_test,table_name,"fbs_test")
         exe_sql_query(sql_queries["create_table"])

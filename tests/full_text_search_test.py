@@ -326,7 +326,7 @@ class SearchIndexTest(APITestBase):
         self._test_highlight_query_with_failed(table_name, index_name)
 
     def _prepare_data(self, table_name):
-        '''菊花茶会分词成：菊花、花茶'''
+        '''Chrysanthemum tea will be tokenized into: chrysanthemum, flower tea'''
 
         web_1_url = 'http://a.com/001.html'
         web_1_type = 'forum'

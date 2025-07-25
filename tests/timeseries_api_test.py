@@ -16,7 +16,7 @@ class TimeseriesApiTest(APITestBase):
         table_name = prefix + str(int(time.time()))
 
         try:
-            # 清理环境
+            # Clean up the environment
             b = client.list_timeseries_table()
             for item in b:
                 if item.timeseries_table_name.startswith(prefix):
@@ -28,7 +28,7 @@ class TimeseriesApiTest(APITestBase):
         time.sleep(25)
         print("finish sleep")
 
-        # 建表
+        # Create table
         meta = metadata.TimeseriesTableMeta(table_name)
         meta.field_primary_keys = [('a1', 'INTEGER'), ('b1', 'STRING')]
         meta.timeseries_keys = ["a", "b"]
@@ -148,7 +148,7 @@ class TimeseriesApiTest(APITestBase):
         self.assert_equal(res.timeseriesMetas[0].attributes, attri)
 
 
-        ## 测试一下中文
+        ## Test in Chinese
         field1 = {"string_field": "数值1", "string_field2": "数值2"}
         tags1 = {"tag1": "标签1", "tag2": "标签2"}
         key1 = metadata.TimeseriesKey("测试1", "来源1", tags1)
@@ -201,7 +201,7 @@ class TimeseriesApiTest(APITestBase):
         table_name = prefix + str(int(time.time()))
 
         try:
-            # 清理环境
+            # Clean up the environment
             b = client.list_timeseries_table()
             for item in b:
                 if item.timeseries_table_name.startswith(prefix):
@@ -242,7 +242,7 @@ class TimeseriesApiTest(APITestBase):
         table_name = prefix + str(int(time.time()))
 
         try:
-            # 清理环境
+            # Clean up the environment
             b = client.list_timeseries_table()
             for item in b:
                 if item.timeseries_table_name.startswith(prefix):
@@ -258,7 +258,7 @@ class TimeseriesApiTest(APITestBase):
         request = metadata.CreateTimeseriesTableRequest(table_meta)
         client.create_timeseries_table(request)
 
-        # 写入数据
+        # Write data
         tags = {"a": "a1", "b": "b1"}
         field1 = {"gid": 1, "uid": 2, "bool_field": True, "double_field": 0.3}
         field2 = {"bool_field": True, "double_field": 0.3}
@@ -273,7 +273,7 @@ class TimeseriesApiTest(APITestBase):
             self.fail("should fail but not.")
         except Exception as e:
             self.assertTrue(str(e).index("missing primary key fields") > 0)
-        # 读取数据
+        # Read data
         limit = 1
         request = metadata.GetTimeseriesDataRequest(table_name, key1, limit=limit)
         request.endTimeInUs = int(time.time() * 1000000)
@@ -287,7 +287,7 @@ class TimeseriesApiTest(APITestBase):
         self.assert_equal(resp.rows[0].fields["bool_field"], field1["bool_field"])
         self.assert_equal(resp.rows[0].fields["double_field"], field1["double_field"])
 
-        # 删表
+        # Delete table
         client.delete_timeseries_table(table_name)
 
 

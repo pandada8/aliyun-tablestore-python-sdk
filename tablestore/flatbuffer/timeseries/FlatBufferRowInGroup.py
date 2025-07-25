@@ -50,7 +50,7 @@ class FlatBufferRowInGroup(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
-            from timeseries.FieldValues import FieldValues
+            from tablestore.flatbuffer.timeseries.FieldValues import FieldValues
             obj = FieldValues()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -70,7 +70,7 @@ class FlatBufferRowInGroup(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from timeseries.Tag import Tag
+            from tablestore.flatbuffer.timeseries.Tag import Tag
             obj = Tag()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -88,56 +88,30 @@ class FlatBufferRowInGroup(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(14))
         return o == 0
 
-def FlatBufferRowInGroupStart(builder):
-    builder.StartObject(6)
-
+def FlatBufferRowInGroupStart(builder): builder.StartObject(6)
 def Start(builder):
-    FlatBufferRowInGroupStart(builder)
-
-def FlatBufferRowInGroupAddDataSource(builder, dataSource):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(dataSource), 0)
-
+    return FlatBufferRowInGroupStart(builder)
+def FlatBufferRowInGroupAddDataSource(builder, dataSource): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(dataSource), 0)
 def AddDataSource(builder, dataSource):
-    FlatBufferRowInGroupAddDataSource(builder, dataSource)
-
-def FlatBufferRowInGroupAddTags(builder, tags):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(tags), 0)
-
+    return FlatBufferRowInGroupAddDataSource(builder, dataSource)
+def FlatBufferRowInGroupAddTags(builder, tags): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(tags), 0)
 def AddTags(builder, tags):
-    FlatBufferRowInGroupAddTags(builder, tags)
-
-def FlatBufferRowInGroupAddTime(builder, time):
-    builder.PrependInt64Slot(2, time, 0)
-
+    return FlatBufferRowInGroupAddTags(builder, tags)
+def FlatBufferRowInGroupAddTime(builder, time): builder.PrependInt64Slot(2, time, 0)
 def AddTime(builder, time):
-    FlatBufferRowInGroupAddTime(builder, time)
-
-def FlatBufferRowInGroupAddFieldValues(builder, fieldValues):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(fieldValues), 0)
-
+    return FlatBufferRowInGroupAddTime(builder, time)
+def FlatBufferRowInGroupAddFieldValues(builder, fieldValues): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(fieldValues), 0)
 def AddFieldValues(builder, fieldValues):
-    FlatBufferRowInGroupAddFieldValues(builder, fieldValues)
-
-def FlatBufferRowInGroupAddMetaCacheUpdateTime(builder, metaCacheUpdateTime):
-    builder.PrependUint32Slot(4, metaCacheUpdateTime, 0)
-
+    return FlatBufferRowInGroupAddFieldValues(builder, fieldValues)
+def FlatBufferRowInGroupAddMetaCacheUpdateTime(builder, metaCacheUpdateTime): builder.PrependUint32Slot(4, metaCacheUpdateTime, 0)
 def AddMetaCacheUpdateTime(builder, metaCacheUpdateTime):
-    FlatBufferRowInGroupAddMetaCacheUpdateTime(builder, metaCacheUpdateTime)
-
-def FlatBufferRowInGroupAddTagList(builder, tagList):
-    builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(tagList), 0)
-
+    return FlatBufferRowInGroupAddMetaCacheUpdateTime(builder, metaCacheUpdateTime)
+def FlatBufferRowInGroupAddTagList(builder, tagList): builder.PrependUOffsetTRelativeSlot(5, flatbuffers.number_types.UOffsetTFlags.py_type(tagList), 0)
 def AddTagList(builder, tagList):
-    FlatBufferRowInGroupAddTagList(builder, tagList)
-
-def FlatBufferRowInGroupStartTagListVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
+    return FlatBufferRowInGroupAddTagList(builder, tagList)
+def FlatBufferRowInGroupStartTagListVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartTagListVector(builder, numElems):
     return FlatBufferRowInGroupStartTagListVector(builder, numElems)
-
-def FlatBufferRowInGroupEnd(builder):
-    return builder.EndObject()
-
+def FlatBufferRowInGroupEnd(builder): return builder.EndObject()
 def End(builder):
     return FlatBufferRowInGroupEnd(builder)

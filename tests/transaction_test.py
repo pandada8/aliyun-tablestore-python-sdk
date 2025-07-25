@@ -15,7 +15,7 @@ class TransactionTest(APITestBase):
     """TransactionTest"""
 
     def test_put_row_abort(self):  # test getRow with transaction at the same time
-        """测试UpdateRow的事务，调用StartLocalTransaction API, 然后Abort掉"""
+        """Test the transaction of UpdateRow, call the StartLocalTransaction API, and then Abort it"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -57,7 +57,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(return_row.attribute_columns[0][1], 'origin value')
 
     def test_put_row_commit(self):  # test getRow with transaction at the same time
-        """测试UpdateRow的事务，调用StartLocalTransaction API, 然后Commit提交"""
+        """Test the transaction of UpdateRow, call the StartLocalTransaction API, then commit"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -99,7 +99,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(return_row.attribute_columns[0][1], 'new value')
 
     def test_update_row_abort(self):  # test getRow with transaction at the same time
-        """测试UpdateRow的事务，调用StartLocalTransaction API, 然后Abort掉"""
+        """Test the transaction of UpdateRow, call the StartLocalTransaction API, and then Abort it"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -141,7 +141,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(return_row.attribute_columns[0][1], 'origin value')
 
     def test_update_row_commit(self):  # test getRow with transaction at the same time
-        """测试UpdateRow的事务，调用StartLocalTransaction API, 然后Commit提交"""
+        """Test the transaction of UpdateRow, call the StartLocalTransaction API, then commit."""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -183,7 +183,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(return_row.attribute_columns[0][1], 'new value')
 
     def test_batch_write_row_abort(self):  # test getRow with transaction at the same time
-        """测试BatchWriteRow的事务，调用StartLocalTransaction API, 然后Abort掉"""
+        """Test the transaction of BatchWriteRow, call the StartLocalTransaction API, and then Abort it"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -233,7 +233,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(return_row.attribute_columns[0][1], 'origin value')
 
     def test_batch_write_row_commit(self):  # test getRow with transaction at the same time
-        """测试BatchWriteRow的事务，调用StartLocalTransaction API, 然后Commit提交"""
+        """Test the transaction of BatchWriteRow, call the StartLocalTransaction API, then commit"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -283,7 +283,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(return_row.attribute_columns[0][1], 'batch value')
 
     def test_delete_row_abort(self):  # test getRange with transaction at the same time
-        """测试DeleteRow的事务，调用StartLocalTransaction API, 然后Abort掉"""
+        """Test the transaction of DeleteRow, call the StartLocalTransaction API, and then Abort it"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -343,7 +343,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(len(row_list), 1)
 
     def test_delete_row_commit(self):  # test getRange with transaction at the same time
-        """测试DeleteRow的事务，调用StartLocalTransaction API, 然后Commit提交"""
+        """Test the transaction of DeleteRow, call the StartLocalTransaction API, then commit"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]
@@ -403,7 +403,7 @@ class TransactionTest(APITestBase):
         self.assert_equal(len(row_list), 0)
 
     def test_invalid_transaction_id(self):
-        """Fail测试: 无效事务ID"""
+        """Fail test: Invalid transaction ID"""
 
         table_name = TransactionTest.TABLE_NAME
         primary_key = [('PK0', 1), ('PK1', 'transaction')]

@@ -38,26 +38,15 @@ class Tag(object):
             return self._tab.String(o + self._tab.Pos)
         return None
 
-def TagStart(builder):
-    builder.StartObject(2)
-
+def TagStart(builder): builder.StartObject(2)
 def Start(builder):
-    TagStart(builder)
-
-def TagAddName(builder, name):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
-
+    return TagStart(builder)
+def TagAddName(builder, name): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(name), 0)
 def AddName(builder, name):
-    TagAddName(builder, name)
-
-def TagAddValue(builder, value):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(value), 0)
-
+    return TagAddName(builder, name)
+def TagAddValue(builder, value): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(value), 0)
 def AddValue(builder, value):
-    TagAddValue(builder, value)
-
-def TagEnd(builder):
-    return builder.EndObject()
-
+    return TagAddValue(builder, value)
+def TagEnd(builder): return builder.EndObject()
 def End(builder):
     return TagEnd(builder)

@@ -31,11 +31,13 @@ message MatchQuery {
     optional string text = 2;
     optional int32 minimum_should_match = 3;
     optional QueryOperator operator = 4;
+    optional float weight = 5;
 }
 
 message MatchPhraseQuery {
     optional string field_name = 1;
     optional string text = 2;
+    optional float weight = 3;
 }
 
 message MatchAllQuery {
@@ -44,11 +46,13 @@ message MatchAllQuery {
 message TermQuery {
     optional string field_name = 1;
     optional bytes term = 2;
+    optional float weight = 3;
 }
 
 message TermsQuery {
     optional string field_name = 1;
     repeated bytes terms = 2;
+    optional float weight = 3;
 }
 
 message RangeQuery {
@@ -62,11 +66,13 @@ message RangeQuery {
 message PrefixQuery {
     optional string field_name = 1;
     optional string prefix = 2;
+    optional float weight = 3;
 }
 
 message WildcardQuery {
     optional string field_name = 1;
     optional string value = 2;
+    optional float weight = 3;
 }
 
 message BoolQuery {
@@ -102,6 +108,7 @@ message NestedQuery {
     optional string path = 1;
     optional Query query = 2;
     optional ScoreMode score_mode = 3;
+    optional float weight = 4;
     optional InnerHits inner_hits = 5;
 }
 
@@ -138,6 +145,7 @@ message KnnVectorQuery {
     optional int32 top_k = 2;
     repeated float float32_query_vector = 4;
     optional Query filter = 5;
+    optional float weight = 6;
 }
 
 message Query {
@@ -536,10 +544,11 @@ message SearchRequest {
     optional ColumnsToGet columns_to_get = 3;
     optional bytes search_query = 4;
     repeated bytes routing_values = 5;
+    optional int32 timeout_ms = 6;
 }
 
 /**
- * Response部分：
+ * Response part:
  **/
 message SearchResponse {
     optional int64 total_hits = 1;
@@ -698,7 +707,7 @@ enum SyncPhase {
 
 message SyncStat {
     optional SyncPhase sync_phase = 1;
-    optional int64 current_sync_timestamp = 2; // 同步进度，参考TunnelService。
+    optional int64 current_sync_timestamp = 2; // Synchronize progress, refer to TunnelService.
 }
 
 message DescribeSearchIndexRequest {
@@ -751,7 +760,7 @@ message ParallelScanRequest {
     optional ColumnsToGet columns_to_get = 3;
     optional bytes session_id = 4;
     optional bytes scan_query = 5; 
-    optional int32 timeout_ms = 6; 
+    optional int32 timeout_ms = 6;
 }
 
 message ParallelScanResponse {

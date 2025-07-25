@@ -39,7 +39,7 @@ def create_timeseries_data(client: OTSClient, table_name: str):
 
 
 if __name__ == '__main__':
-    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE)
+    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE, region=OTS_REGION)
     table_name = "table_name"
     create_timeseries_data(client, table_name)
     put_timeseries_data(client, table_name)

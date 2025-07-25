@@ -77,7 +77,7 @@ def batch_write_row(client):
 
 
 if __name__ == '__main__':
-    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE)
+    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE, region=OTS_REGION)
     try:
         delete_table(client)
     except:

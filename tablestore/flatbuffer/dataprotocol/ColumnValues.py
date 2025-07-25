@@ -159,7 +159,7 @@ class ColumnValues(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from dataprotocol.BytesValue import BytesValue
+            from tablestore.flatbuffer.dataprotocol.BytesValue import BytesValue
             obj = BytesValue()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -182,7 +182,7 @@ class ColumnValues(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(16))
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
-            from dataprotocol.RLEStringValues import RLEStringValues
+            from tablestore.flatbuffer.dataprotocol.RLEStringValues import RLEStringValues
             obj = RLEStringValues()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -233,155 +233,3 @@ def AddRleStringValues(builder, rleStringValues):
 def ColumnValuesEnd(builder): return builder.EndObject()
 def End(builder):
     return ColumnValuesEnd(builder)
-import dataprotocol.BytesValue
-import dataprotocol.RLEStringValues
-try:
-    from typing import List, Optional
-except:
-    pass
-
-class ColumnValuesT(object):
-
-    # ColumnValuesT
-    def __init__(self):
-        self.isNullvalues = None  # type: List[bool]
-        self.longValues = None  # type: List[int]
-        self.boolValues = None  # type: List[bool]
-        self.doubleValues = None  # type: List[float]
-        self.stringValues = None  # type: List[str]
-        self.binaryValues = None  # type: List[dataprotocol.BytesValue.BytesValueT]
-        self.rleStringValues = None  # type: Optional[dataprotocol.RLEStringValues.RLEStringValuesT]
-
-    @classmethod
-    def InitFromBuf(cls, buf, pos):
-        columnValues = ColumnValues()
-        columnValues.Init(buf, pos)
-        return cls.InitFromObj(columnValues)
-
-    @classmethod
-    def InitFromPackedBuf(cls, buf, pos=0):
-        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
-        return cls.InitFromBuf(buf, pos+n)
-
-    @classmethod
-    def InitFromObj(cls, columnValues):
-        x = ColumnValuesT()
-        x._UnPack(columnValues)
-        return x
-
-    # ColumnValuesT
-    def _UnPack(self, columnValues):
-        if columnValues is None:
-            return
-        if not columnValues.IsNullvaluesIsNone():
-            if np is None:
-                self.isNullvalues = []
-                for i in range(columnValues.IsNullvaluesLength()):
-                    self.isNullvalues.append(columnValues.IsNullvalues(i))
-            else:
-                self.isNullvalues = columnValues.IsNullvaluesAsNumpy()
-        if not columnValues.LongValuesIsNone():
-            if np is None:
-                self.longValues = []
-                for i in range(columnValues.LongValuesLength()):
-                    self.longValues.append(columnValues.LongValues(i))
-            else:
-                self.longValues = columnValues.LongValuesAsNumpy()
-        if not columnValues.BoolValuesIsNone():
-            if np is None:
-                self.boolValues = []
-                for i in range(columnValues.BoolValuesLength()):
-                    self.boolValues.append(columnValues.BoolValues(i))
-            else:
-                self.boolValues = columnValues.BoolValuesAsNumpy()
-        if not columnValues.DoubleValuesIsNone():
-            if np is None:
-                self.doubleValues = []
-                for i in range(columnValues.DoubleValuesLength()):
-                    self.doubleValues.append(columnValues.DoubleValues(i))
-            else:
-                self.doubleValues = columnValues.DoubleValuesAsNumpy()
-        if not columnValues.StringValuesIsNone():
-            self.stringValues = []
-            for i in range(columnValues.StringValuesLength()):
-                self.stringValues.append(columnValues.StringValues(i))
-        if not columnValues.BinaryValuesIsNone():
-            self.binaryValues = []
-            for i in range(columnValues.BinaryValuesLength()):
-                if columnValues.BinaryValues(i) is None:
-                    self.binaryValues.append(None)
-                else:
-                    bytesValue_ = dataprotocol.BytesValue.BytesValueT.InitFromObj(columnValues.BinaryValues(i))
-                    self.binaryValues.append(bytesValue_)
-        if columnValues.RleStringValues() is not None:
-            self.rleStringValues = dataprotocol.RLEStringValues.RLEStringValuesT.InitFromObj(columnValues.RleStringValues())
-
-    # ColumnValuesT
-    def Pack(self, builder):
-        if self.isNullvalues is not None:
-            if np is not None and type(self.isNullvalues) is np.ndarray:
-                isNullvalues = builder.CreateNumpyVector(self.isNullvalues)
-            else:
-                ColumnValuesStartIsNullvaluesVector(builder, len(self.isNullvalues))
-                for i in reversed(range(len(self.isNullvalues))):
-                    builder.PrependBool(self.isNullvalues[i])
-                isNullvalues = builder.EndVector()
-        if self.longValues is not None:
-            if np is not None and type(self.longValues) is np.ndarray:
-                longValues = builder.CreateNumpyVector(self.longValues)
-            else:
-                ColumnValuesStartLongValuesVector(builder, len(self.longValues))
-                for i in reversed(range(len(self.longValues))):
-                    builder.PrependInt64(self.longValues[i])
-                longValues = builder.EndVector()
-        if self.boolValues is not None:
-            if np is not None and type(self.boolValues) is np.ndarray:
-                boolValues = builder.CreateNumpyVector(self.boolValues)
-            else:
-                ColumnValuesStartBoolValuesVector(builder, len(self.boolValues))
-                for i in reversed(range(len(self.boolValues))):
-                    builder.PrependBool(self.boolValues[i])
-                boolValues = builder.EndVector()
-        if self.doubleValues is not None:
-            if np is not None and type(self.doubleValues) is np.ndarray:
-                doubleValues = builder.CreateNumpyVector(self.doubleValues)
-            else:
-                ColumnValuesStartDoubleValuesVector(builder, len(self.doubleValues))
-                for i in reversed(range(len(self.doubleValues))):
-                    builder.PrependFloat64(self.doubleValues[i])
-                doubleValues = builder.EndVector()
-        if self.stringValues is not None:
-            stringValueslist = []
-            for i in range(len(self.stringValues)):
-                stringValueslist.append(builder.CreateString(self.stringValues[i]))
-            ColumnValuesStartStringValuesVector(builder, len(self.stringValues))
-            for i in reversed(range(len(self.stringValues))):
-                builder.PrependUOffsetTRelative(stringValueslist[i])
-            stringValues = builder.EndVector()
-        if self.binaryValues is not None:
-            binaryValueslist = []
-            for i in range(len(self.binaryValues)):
-                binaryValueslist.append(self.binaryValues[i].Pack(builder))
-            ColumnValuesStartBinaryValuesVector(builder, len(self.binaryValues))
-            for i in reversed(range(len(self.binaryValues))):
-                builder.PrependUOffsetTRelative(binaryValueslist[i])
-            binaryValues = builder.EndVector()
-        if self.rleStringValues is not None:
-            rleStringValues = self.rleStringValues.Pack(builder)
-        ColumnValuesStart(builder)
-        if self.isNullvalues is not None:
-            ColumnValuesAddIsNullvalues(builder, isNullvalues)
-        if self.longValues is not None:
-            ColumnValuesAddLongValues(builder, longValues)
-        if self.boolValues is not None:
-            ColumnValuesAddBoolValues(builder, boolValues)
-        if self.doubleValues is not None:
-            ColumnValuesAddDoubleValues(builder, doubleValues)
-        if self.stringValues is not None:
-            ColumnValuesAddStringValues(builder, stringValues)
-        if self.binaryValues is not None:
-            ColumnValuesAddBinaryValues(builder, binaryValues)
-        if self.rleStringValues is not None:
-            ColumnValuesAddRleStringValues(builder, rleStringValues)
-        columnValues = ColumnValuesEnd(builder)
-        return columnValues

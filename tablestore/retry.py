@@ -4,8 +4,8 @@ import math
 
 class RetryPolicy(object):
     """
-    ```RetryPolicy```是重试策略的接口，包含2个未实现的方法和它们的参数列表。要实现一个重试策略，
-    继承这个类并实现它的2个方法。
+    The ```RetryPolicy``` is the interface for retry strategies, containing 2 unimplemented methods and their parameter lists. 
+    To implement a retry strategy, inherit from this class and implement its 2 methods.
     """
 
     def should_retry(self, retry_times, exception, api_name):
@@ -74,20 +74,20 @@ class RetryUtil(object):
 
 class DefaultRetryPolicy(RetryPolicy):
     """
-    默认重试策略
-    最大重试次数为20，最大重试间隔为3秒，对流控类错误以及读操作相关的服务端内部错误进行了重试。
+    Default retry strategy
+    The maximum number of retries is 20, and the maximum retry interval is 3 seconds. Retries are performed for throttling-related errors and internal server errors associated with read operations.
     """
 
-    # 最大重试次数
+    # Maximum retry count
     max_retry_times = 20
 
-    # 最大重试间隔，单位为秒
+    # Maximum retry interval, in seconds
     max_retry_delay = 3   
 
-    # 每次重试间隔的递增倍数
+    # Incremental multiplier for each retry interval
     scale_factor = 2
 
-    # 两种错误的起始重试间隔，单位为秒
+    # Two error initial retry intervals, in seconds
     server_throttling_exception_delay_factor = 0.5
     stability_exception_delay_factor = 0.2
 
@@ -135,7 +135,7 @@ class DefaultRetryPolicy(RetryPolicy):
 
 class NoRetryPolicy(RetryPolicy):
     """
-    不进行任何重试的重试策略
+    A retry strategy that does not perform any retries.
     """
 
     def get_retry_delay(self, retry_times, exception, api_name):
@@ -147,7 +147,7 @@ class NoRetryPolicy(RetryPolicy):
 
 class NoDelayRetryPolicy(DefaultRetryPolicy):
     """
-    没有延时的重试策略
+    A retry strategy with no delay
     """
 
     def get_retry_delay(self, retry_times, exception, api_name):
@@ -155,7 +155,7 @@ class NoDelayRetryPolicy(DefaultRetryPolicy):
 
 class WriteRetryPolicy(DefaultRetryPolicy):
     """
-    相对于默认重试策略，此策略对写操作也会重试
+    Compared to the default retry strategy, this strategy will also retry write operations.
     """
 
     def is_repeatable_api(self, api_name):

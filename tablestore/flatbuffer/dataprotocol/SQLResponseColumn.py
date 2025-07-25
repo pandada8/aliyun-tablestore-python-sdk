@@ -43,7 +43,7 @@ class SQLResponseColumn(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(8))
         if o != 0:
             x = self._tab.Indirect(o + self._tab.Pos)
-            from dataprotocol.ColumnValues import ColumnValues
+            from tablestore.flatbuffer.dataprotocol.ColumnValues import ColumnValues
             obj = ColumnValues()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -64,57 +64,3 @@ def AddColumnValue(builder, columnValue):
 def SQLResponseColumnEnd(builder): return builder.EndObject()
 def End(builder):
     return SQLResponseColumnEnd(builder)
-import dataprotocol.ColumnValues
-try:
-    from typing import Optional
-except:
-    pass
-
-class SQLResponseColumnT(object):
-
-    # SQLResponseColumnT
-    def __init__(self):
-        self.columnName = None  # type: str
-        self.columnType = 0  # type: int
-        self.columnValue = None  # type: Optional[dataprotocol.ColumnValues.ColumnValuesT]
-
-    @classmethod
-    def InitFromBuf(cls, buf, pos):
-        sqlresponseColumn = SQLResponseColumn()
-        sqlresponseColumn.Init(buf, pos)
-        return cls.InitFromObj(sqlresponseColumn)
-
-    @classmethod
-    def InitFromPackedBuf(cls, buf, pos=0):
-        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
-        return cls.InitFromBuf(buf, pos+n)
-
-    @classmethod
-    def InitFromObj(cls, sqlresponseColumn):
-        x = SQLResponseColumnT()
-        x._UnPack(sqlresponseColumn)
-        return x
-
-    # SQLResponseColumnT
-    def _UnPack(self, sqlresponseColumn):
-        if sqlresponseColumn is None:
-            return
-        self.columnName = sqlresponseColumn.ColumnName()
-        self.columnType = sqlresponseColumn.ColumnType()
-        if sqlresponseColumn.ColumnValue() is not None:
-            self.columnValue = dataprotocol.ColumnValues.ColumnValuesT.InitFromObj(sqlresponseColumn.ColumnValue())
-
-    # SQLResponseColumnT
-    def Pack(self, builder):
-        if self.columnName is not None:
-            columnName = builder.CreateString(self.columnName)
-        if self.columnValue is not None:
-            columnValue = self.columnValue.Pack(builder)
-        SQLResponseColumnStart(builder)
-        if self.columnName is not None:
-            SQLResponseColumnAddColumnName(builder, columnName)
-        SQLResponseColumnAddColumnType(builder, self.columnType)
-        if self.columnValue is not None:
-            SQLResponseColumnAddColumnValue(builder, columnValue)
-        sqlresponseColumn = SQLResponseColumnEnd(builder)
-        return sqlresponseColumn

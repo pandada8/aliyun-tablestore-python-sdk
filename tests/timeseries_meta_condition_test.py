@@ -18,7 +18,7 @@ class TimeseriesMetaConditionTest(APITestBase):
         table_name = prefix + str(int(time.time()))
 
         try:
-            # 清理环境
+            # Clean up the environment
             b = client.list_timeseries_table()
             for item in b:
                 if item.timeseries_table_name.startswith(prefix):
@@ -146,7 +146,7 @@ class TimeseriesMetaConditionTest(APITestBase):
         res = client.query_timeseries_meta(request)
         self.assert_equal(len(res.timeseriesMetas), 2)
 
-        # 测试下meta query的nexttoken
+        # Test the nexttoken of meta query
         request = metadata.QueryTimeseriesMetaRequest(table_name, limit =1)
         res = client.query_timeseries_meta(request)
         self.assert_equal(len(res.timeseriesMetas), 1)

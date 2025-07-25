@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 
-__version__ = '6.1.0'
+__version__ = '6.2.1'
 __all__ = [
     'OTSClient',
 
@@ -39,10 +39,13 @@ __all__ = [
     'DefaultRetryPolicy',
     'LogicalOperator',
     'ComparatorType',
+    'CastType',
     'ColumnConditionType',
     'ColumnCondition',
     'CompositeColumnCondition',
+    'RegexRule',
     'SingleColumnCondition',
+    'SingleColumnRegexCondition',
     'RowExistenceExpectation',
     'SearchIndexMeta',
     'FieldSchema',
@@ -137,10 +140,10 @@ __all__ = [
 
 
 from tablestore.client import OTSClient
-
 from tablestore.metadata import *
 from tablestore.aggregation import *
 from tablestore.group_by import *
 from tablestore.error import *
 from tablestore.retry import *
-from tablestore.const import *
+from tablestore.credentials import *
+from tablestore.const_module import *

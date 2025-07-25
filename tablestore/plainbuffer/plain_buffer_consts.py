@@ -2,7 +2,7 @@
 
 import sys
 import platform
-import tablestore.const as const
+import tablestore.const_module as const
 
 const.python_version = sys.version_info[0]
 

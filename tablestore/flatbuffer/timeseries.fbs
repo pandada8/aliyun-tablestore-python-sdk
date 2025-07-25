@@ -1,4 +1,4 @@
-namespace timeseries;
+namespace tablestore.flatbuffer.timeseries;
 
 enum DataType:byte {NONE = 0, LONG = 1, BOOLEAN = 2, DOUBLE = 3, STRING = 4, BINARY = 5}
 

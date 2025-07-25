@@ -3,12 +3,9 @@
 
 __all__ = ['OTSClient']
 
-import sys
-import six
 import time
-import _strptime
-
 import logging
+
 try:  # Python 2.7+
     from logging import NullHandler
 except ImportError:
@@ -21,7 +18,8 @@ try:
 except ImportError:
     import urllib.parse as urlparse
 
-from tablestore.error import *
+from tablestore.credentials import CredentialsProvider, StaticCredentialsProvider
+from tablestore.auth import SignV2, SignV4
 from tablestore.protocol import OTSProtocol
 from tablestore.connection import ConnectionPool
 from tablestore.metadata import *
@@ -30,79 +28,88 @@ from tablestore.retry import DefaultRetryPolicy
 
 class OTSClient(object):
     """
-    ``OTSClient``实现了OTS服务的所有接口。用户可以通过创建``OTSClient``的实例，并调用它的
-    方法来访问OTS服务的所有功能。用户可以在初始化方法``__init__()``中设置各种权限、连接等参数。
+    `OTSClient` implements all the interfaces of the OTS service. Users can create an instance of `OTSClient` and call its
+    methods to access all features of the OTS service. Users can set various permissions, connection parameters, etc., in the initialization method `__init__()`.
 
-    除非另外说明，``OTSClient``的所有接口都以抛异常的方式处理错误(请参考模块``tablestore.error``
-    )，即如果某个函数有返回值，则会在描述中说明；否则返回None。
+    Unless otherwise stated, all interfaces of `OTSClient` handle errors by throwing exceptions (please refer to the `tablestore.error` module).
+    That is, if a function has a return value, it will be described in the documentation; otherwise, it returns None.
     """
-
 
     DEFAULT_ENCODING = 'utf8'
     DEFAULT_SOCKET_TIMEOUT = 50
     DEFAULT_MAX_CONNECTION = 50
     DEFAULT_LOGGER_NAME = 'tablestore-client'
 
-    protocol_class = OTSProtocol
-    connection_pool_class = ConnectionPool
-
-    def __init__(self, end_point, access_key_id, access_key_secret, instance_name, **kwargs):
+    def __init__(self, end_point, access_key_id=None, access_key_secret=None, instance_name=None,
+                 credentials_provider: CredentialsProvider = None, region: str = None, **kwargs):
         """
-        初始化``OTSClient``实例。
+        Initialize an ``OTSClient`` instance.
 
-        ``end_point``是OTS服务的地址（例如 'http://instance.cn-hangzhou.ots.aliyun.com'），必须以'http://'或'https://'开头。
+        ``end_point`` is the address of the OTS service (e.g., 'https://instance.cn-hangzhou.ots.aliyun.com'), and must start with 'http://' or 'https://'.
 
-        ``access_key_id``是访问OTS服务的accessid，通过官方网站申请或通过管理员获取。
+        ``access_key_id`` is the accessid for accessing the OTS service, which can be obtained through the official website or from the administrator.
 
-        ``access_key_secret``是访问OTS服务的accesskey，通过官方网站申请或通过管理员获取。
+        ``access_key_secret`` is the accesskey for accessing the OTS service, which can be obtained through the official website or from the administrator.
 
-        ``instance_name``是要访问的实例名，通过官方网站控制台创建或通过管理员获取。
+        ``instance_name`` is the name of the instance to be accessed, which can be created via the official website console or obtained from the administrator.
 
-        ``sts_token``是访问OTS服务的STS token，从STS服务获取，具有有效期，过期后需要重新获取。
+        ``sts_token`` is the STS token for accessing the OTS service, obtained from the STS service. It has a validity period and needs to be re-obtained after expiration.
 
-        ``encoding``请求参数的字符串编码类型，默认是utf8。
+        ``credentials_provider`` is the user credential provider for accessing the OTS service, which can provide parameters such as access_key and sts_token.
 
-        ``socket_timeout``是连接池中每个连接的Socket超时，单位为秒，可以为int或float。默认值为50。
+        ``region`` is the region where the OTS service is located. If it is not empty, v4 signing will be used.
 
-        ``max_connection``是连接池的最大连接数。默认为50，
+        ``sign_date`` is the date used for signing when using v4 signing. The default value is the UTC date of the current day.
 
-        ``logger_name``用来在请求中打DEBUG日志，或者在出错时打ERROR日志。
+        ``auto_update_v4_sign`` specifies whether to automatically update the signing date when using v4 signing.
 
-        ``retry_policy``定义了重试策略，默认的重试策略为 DefaultRetryPolicy。你可以继承 RetryPolicy 来实现自己的重试策略，请参考 DefaultRetryPolicy 的代码。
+        ``encoding`` is the string encoding type for request parameters. The default is utf8.
 
-        ``ssl_version``定义了https连接使用的TLS版本，默认为None。
+        ``socket_timeout`` is the Socket timeout for each connection in the connection pool, measured in seconds. It can be an int or float. The default value is 50.
+
+        ``max_connection`` is the maximum number of connections in the connection pool. The default is 50.
+
+        ``logger_name`` is used to log DEBUG logs during requests or ERROR logs when errors occur.
+
+        ``retry_policy`` defines the retry policy. The default retry policy is DefaultRetryPolicy. You can inherit from RetryPolicy to implement your own retry policy; please refer to the code of DefaultRetryPolicy.
+
+        ``ssl_version`` defines the TLS version used for https connections. The default is None.
 
 
-        示例：创建一个OTSClient实例
+        Example: Create an OTSClient instance
 
             from tablestore.client import OTSClient
 
-            client = OTSClient('your_instance_endpoint', 'your_user_id', 'your_user_key', 'your_instance_name')
+            client = OTSClient('your_instance_endpoint', 'your_user_id', 'your_user_key', 'your_instance_name', region='region')
         """
-
-        self._validate_parameter(end_point, access_key_id, access_key_secret, instance_name)
-        sts_token = kwargs.get('sts_token')
-
+        # initialize credentials provider
+        self.credentials_provider = self._create_credentials_provider(
+            end_point=end_point,
+            instance_name=instance_name,
+            access_key_id=access_key_id,
+            access_key_secret=access_key_secret,
+            sts_token=kwargs.get('sts_token'),
+            credentials_provider=credentials_provider
+        )
         self.encoding = kwargs.get('encoding')
         if self.encoding is None:
             self.encoding = OTSClient.DEFAULT_ENCODING
-
-        self.socket_timeout = kwargs.get('socket_timeout')
-        if self.socket_timeout is None:
-            self.socket_timeout = OTSClient.DEFAULT_SOCKET_TIMEOUT
-
-        self.max_connection = kwargs.get('max_connection')
-        if self.max_connection is None:
-            self.max_connection = OTSClient.DEFAULT_MAX_CONNECTION
-
-        self.ssl_version = kwargs.get('ssl_version')
+        if region is None:
+            self._signer = SignV2(self.credentials_provider, self.encoding)
+        else:
+            self._signer = SignV4(
+                self.credentials_provider,
+                self.encoding,
+                region=region,
+                **kwargs
+            )
 
         # initialize logger
         logger_name = kwargs.get('logger_name')
         if logger_name is None:
             self.logger = logging.getLogger(OTSClient.DEFAULT_LOGGER_NAME)
-            nullHandler = NullHandler()
-            self.logger.addHandler(nullHandler)
+            null_handler = NullHandler()
+            self.logger.addHandler(null_handler)
         else:
             self.logger = logging.getLogger(logger_name)
 
@@ -112,25 +119,29 @@ class OTSClient(object):
 
         if scheme != 'http' and scheme != 'https':
             raise OTSClientError(
-                "protocol of end_point must be 'http' or 'https', e.g. http://instance.cn-hangzhou.ots.aliyun.com."
+                "protocol of end_point must be 'http' or 'https', e.g. https://instance.cn-hangzhou.ots.aliyun.com."
             )
         if host == '':
             raise OTSClientError(
-                "host of end_point should be specified, e.g. http://instance.cn-hangzhou.ots.aliyun.com."
+                "host of end_point should be specified, e.g. https://instance.cn-hangzhou.ots.aliyun.com."
             )
 
-        # intialize protocol instance via user configuration
-        self.protocol = self.protocol_class(
-            access_key_id,
-            access_key_secret,
-            sts_token,
-            instance_name,
-            self.encoding,
-            self.logger
+        # initialize protocol instance via user configuration
+        self.protocol = OTSProtocol(
+            instance_name=instance_name,
+            encoding=self.encoding,
+            logger=self.logger
         )
 
         # initialize connection via user configuration
-        self.connection = self.connection_pool_class(
+        self.socket_timeout = kwargs.get('socket_timeout')
+        if self.socket_timeout is None:
+            self.socket_timeout = OTSClient.DEFAULT_SOCKET_TIMEOUT
+        self.max_connection = kwargs.get('max_connection')
+        if self.max_connection is None:
+            self.max_connection = OTSClient.DEFAULT_MAX_CONNECTION
+        self.ssl_version = kwargs.get('ssl_version')
+        self.connection = ConnectionPool(
             host, path, timeout=self.socket_timeout, maxsize=self.max_connection, client_ssl_version=self.ssl_version
         )
 
@@ -141,24 +152,18 @@ class OTSClient(object):
         self.retry_policy = retry_policy
 
     def _request_helper(self, api_name, *args, **kwargs):
-
-        query, reqheaders, reqbody = self.protocol.make_request(
-            api_name, *args, **kwargs
-        )
+        # Generate signing key, each request generate once
+        # Must generate before making request headers
+        self._signer.gen_signing_key()
+        query, req_headers, req_body = self.protocol.make_request(api_name, self._signer, *args, **kwargs)
 
         retry_times = 0
-
-        while 1:
-
+        while True:
             try:
-                status, reason, resheaders, resbody = self.connection.send_receive(
-                    query, reqheaders, reqbody
-                )
-                self.protocol.handle_error(api_name, query, status, reason, resheaders, resbody)
+                status, reason, res_headers, res_body = self.connection.send_receive(query, req_headers, req_body)
+                self.protocol.handle_error(api_name, query, status, reason, res_headers, res_body, self._signer)
                 break
-
             except OTSServiceError as e:
-
                 if self.retry_policy.should_retry(retry_times, e, api_name):
                     retry_delay = self.retry_policy.get_retry_delay(retry_times, e, api_name)
                     time.sleep(retry_delay)
@@ -166,42 +171,60 @@ class OTSClient(object):
                 else:
                     raise e
 
-        return self.protocol.parse_response(api_name, status, resheaders, resbody)
+        return self.protocol.parse_response(api_name, status, res_headers, res_body)
 
-    def create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes=[]):
+    @staticmethod
+    def _create_credentials_provider(end_point, instance_name, access_key_id, access_key_secret,
+                                     sts_token: str = None,
+                                     credentials_provider: CredentialsProvider = None) -> CredentialsProvider:
+        if not isinstance(end_point, str) or end_point == '':
+            raise OTSClientError('end_point is not str or is empty.')
+        if not isinstance(instance_name, str) or instance_name == '':
+            raise OTSClientError('instance_name is not str or is empty.')
+        if credentials_provider is None:
+            if not isinstance(access_key_id, str) or access_key_id == '':
+                raise OTSClientError('access_key_id is not str or is empty.')
+            if not isinstance(access_key_secret, str) or access_key_secret == '':
+                raise OTSClientError('access_key_secret is not str or is empty.')
+            return StaticCredentialsProvider(access_key_id=access_key_id, access_key_secret=access_key_secret,
+                                             security_token=sts_token)
+        else:
+            return credentials_provider
+
+    def create_table(self, table_meta, table_options, reserved_throughput, secondary_indexes=None):
         """
-        说明：根据表信息创建表。
+        Description: Creates a table based on the table information.
 
-        ``table_meta``是``tablestore.metadata.TableMeta``类的实例，它包含表名和PrimaryKey的schema，
-        请参考``TableMeta``类的文档。当创建了一个表之后，通常要等待1分钟时间使partition load
-        完成，才能进行各种操作。
-        ``table_options``是``tablestore.metadata.TableOptions``类的示例，它包含time_to_live，max_version和
-        max_time_deviation三个参数。
-        ``reserved_throughput``是``tablestore.metadata.ReservedThroughput``类的实例，表示预留读写吞吐量。
-        ``secondary_indexes``是一个数组，可以包含一个或多个``tablestore.metadata.SecondaryIndexMeta``类的实例，表示要创建的二级索引。
+        ``table_meta`` is an instance of the ``tablestore.metadata.TableMeta`` class. It includes the table name and the schema of the PrimaryKey.
+        Refer to the documentation for the ``TableMeta`` class. After creating a table, it usually takes about 1 minute for partition loading to complete before various operations can be performed.
+        ``table_options`` is an instance of the ``tablestore.metadata.TableOptions`` class, which includes three parameters: time_to_live, max_version, and max_time_deviation.
+        ``reserved_throughput`` is an instance of the ``tablestore.metadata.ReservedThroughput`` class, representing the reserved read/write throughput.
+        ``secondary_indexes`` is an array that can include one or more instances of the ``tablestore.metadata.SecondaryIndexMeta`` class, representing the secondary indexes to be created.
 
-        返回：无。
+        Return: None.
 
-        示例：
+        Example:
 
             schema_of_primary_key = [('gid', 'INTEGER'), ('uid', 'INTEGER')]
             table_meta = TableMeta('myTable', schema_of_primary_key)
-            table_options = TableOptions();
+            table_options = TableOptions()
             reserved_throughput = ReservedThroughput(CapacityUnit(0, 0))
             client.create_table(table_meta, table_options, reserved_throughput)
         """
 
+        if secondary_indexes is None:
+            secondary_indexes = []
         self._request_helper('CreateTable', table_meta, table_options, reserved_throughput, secondary_indexes)
 
     def delete_table(self, table_name):
         """
-        说明：根据表名删除表。
+        Description: Delete a table according to the table name.
 
-        ``table_name``是对应的表名。
+        ``table_name`` is the corresponding table name.
 
-        返回：无。
+        Return: None.
 
-        示例：
+        Example:
 
             client.delete_table('myTable')
         """
@@ -210,32 +233,32 @@ class OTSClient(object):
 
     def list_table(self):
         """
-        说明：获取所有表名的列表。
+        Description: Get a list of all table names.
 
-        返回：表名列表。
+        Return: A list of table names.
 
-        ``table_list``表示获取的表名列表，类型为tuple，如：('MyTable1', 'MyTable2')。
+        ``table_list`` represents the list of table names obtained, which is of type tuple, e.g., ('MyTable1', 'MyTable2').
 
-        示例：
+        Example:
 
             table_list = client.list_table()
         """
 
         return self._request_helper('ListTable')
 
-    def update_table(self, table_name, table_options = None, reserved_throughput = None):
+    def update_table(self, table_name, table_options=None, reserved_throughput=None):
         """
-        说明：更新表属性，目前只支持修改预留读写吞吐量。
+        Description: Update table properties, currently only supports modifying the reserved read/write throughput.
 
-        ``table_name``是对应的表名。
-        ``table_options``是``tablestore.metadata.TableOptions``类的示例，它包含time_to_live，max_version和max_time_deviation三个参数。
-        ``reserved_throughput``是``tablestore.metadata.ReservedThroughput``类的实例，表示预留读写吞吐量。
+        ``table_name`` is the corresponding table name.
+        ``table_options`` is an instance of the ``tablestore.metadata.TableOptions`` class, which includes three parameters: time_to_live, max_version, and max_time_deviation.
+        ``reserved_throughput`` is an instance of the ``tablestore.metadata.ReservedThroughput`` class, representing the reserved read/write throughput.
 
-        返回：针对该表的预留读写吞吐量的最近上调时间、最近下调时间和当天下调次数。
+        Return: The most recent increase time, decrease time, and the number of decreases on the same day for the reserved read/write throughput of this table.
 
-        ``update_table_response``表示更新的结果，是tablestore.metadata.UpdateTableResponse类的实例。
+        ``update_table_response`` represents the result of the update, which is an instance of the ``tablestore.metadata.UpdateTableResponse`` class.
 
-        示例：
+        Example:
 
             reserved_throughput = ReservedThroughput(CapacityUnit(0, 0))
             table_options = TableOptions();
@@ -243,20 +266,20 @@ class OTSClient(object):
         """
 
         return self._request_helper(
-                    'UpdateTable', table_name, table_options, reserved_throughput
+            'UpdateTable', table_name, table_options, reserved_throughput
         )
 
     def describe_table(self, table_name):
         """
-        说明：获取表的描述信息。
+        Description: Get the description information of the table.
 
-        ``table_name``是对应的表名。
+        ``table_name`` is the corresponding table name.
 
-        返回：表的描述信息。
+        Return: The description information of the table.
 
-        ``describe_table_response``表示表的描述信息，是tablestore.metadata.DescribeTableResponse类的实例。
+        ``describe_table_response`` represents the description information of the table, which is an instance of the tablestore.metadata.DescribeTableResponse class.
 
-        示例：
+        Example:
 
             describe_table_response = client.describe_table('myTable')
         """
@@ -268,50 +291,50 @@ class OTSClient(object):
                 start_column=None, end_column=None, token=None,
                 transaction_id=None):
         """
-        说明：获取一行数据。
+        Description: Get a single row of data.
 
-        ``table_name``是对应的表名。
-        ``primary_key``是主键，类型为dict。
-        ``columns_to_get``是可选参数，表示要获取的列的名称列表，类型为list；如果不填，表示获取所有列。
-        ``column_filter``是可选参数，表示读取指定条件的行
-        ``max_version``是可选参数，表示最多读取的版本数
-        ``time_range``是可选参数，表示读取额版本范围或特定版本，和max_version至少存在一个
+        ``table_name`` is the corresponding table name.
+        ``primary_key`` is the primary key, with a type of dict.
+        ``columns_to_get`` is an optional parameter, representing a list of column names to retrieve, with a type of list; if not specified, it retrieves all columns.
+        ``column_filter`` is an optional parameter, indicating a filter for reading rows based on specific conditions.
+        ``max_version`` is an optional parameter, indicating the maximum number of versions to read.
+        ``time_range`` is an optional parameter, indicating the version range or specific version to read, and at least one of ``time_range`` or ``max_version`` must be provided.
 
-        返回：本次操作消耗的CapacityUnit、主键列和属性列。
+        Return: The consumed CapacityUnit for this operation, primary key columns, and attribute columns.
 
-        ``consumed``表示消耗的CapacityUnit，是tablestore.metadata.CapacityUnit类的实例。
-        ``return_row``表示行数据，包括主键列和属性列，类型都为list，如：[('PK0',value0), ('PK1',value1)]。
-        ``next_token``表示宽行读取时下一次读取的位置，编码的二进制。
+        ``consumed`` indicates the consumed CapacityUnit, which is an instance of the tablestore.metadata.CapacityUnit class.
+        ``return_row`` indicates the row data, including primary key columns and attribute columns, both of type list, such as: [('PK0', value0), ('PK1', value1)].
+        ``next_token`` indicates the position for the next read when reading wide rows, encoded as binary.
 
-        示例：
+        Example:
 
-            primary_key = [('gid',1), ('uid',101)]
+            primary_key = [('gid', 1), ('uid', 101)]
             columns_to_get = ['name', 'address', 'age']
             consumed, return_row, next_token = client.get_row('myTable', primary_key, columns_to_get)
         """
 
         return self._request_helper(
-                    'GetRow', table_name, primary_key, columns_to_get,
-                    column_filter, max_version, time_range,
-                    start_column, end_column, token, transaction_id
+            'GetRow', table_name, primary_key, columns_to_get,
+            column_filter, max_version, time_range,
+            start_column, end_column, token, transaction_id
         )
 
-    def put_row(self, table_name, row, condition = None, return_type = None, transaction_id = None):
+    def put_row(self, table_name, row, condition=None, return_type=None, transaction_id=None):
         """
-        说明：写入一行数据。返回本次操作消耗的CapacityUnit。
+        Description: Write a row of data. Returns the CapacityUnit consumed by this operation.
 
-        ``table_name``是对应的表名。
-        ``row``是行数据，包括主键和属性列。
-        ``condition``表示执行操作前做条件检查，满足条件才执行，是tablestore.metadata.Condition类的实例。
-        目前支持两种条件检测，一是对行的存在性进行检查，检查条件包括：'IGNORE'，'EXPECT_EXIST'和'EXPECT_NOT_EXIST';二是对属性列值的条件检测。
-        ``return_type``表示返回类型，是tablestore.metadata.ReturnType类的实例，目前仅支持返回PrimaryKey，一般用于主键列自增中。
+        ``table_name`` is the corresponding table name.
+        ``row`` is the row data, including the primary key and attribute columns.
+        ``condition`` indicates a condition check to be performed before executing the operation; the operation will only execute if the condition is met. It is an instance of the tablestore.metadata.Condition class.
+        Currently, two types of condition checks are supported: one is a check on the existence of the row, with possible conditions including 'IGNORE', 'EXPECT_EXIST', and 'EXPECT_NOT_EXIST'; the other is a condition check on the value of attribute columns.
+        ``return_type`` indicates the return type, which is an instance of the tablestore.metadata.ReturnType class. Currently, it only supports returning the PrimaryKey, typically used in scenarios involving auto-increment of primary key columns.
 
-        返回：本次操作消耗的CapacityUnit和需要返回的行数据。
+        Return: The CapacityUnit consumed by this operation and the requested row data.
 
-        consumed表示消耗的CapacityUnit，是tablestore.metadata.CapacityUnit类的实例。
-        return_row表示返回的行数据，可能包括主键、属性列。
+        ``consumed`` represents the consumed CapacityUnit, which is an instance of the tablestore.metadata.CapacityUnit class.
+        ``return_row`` represents the returned row data, which may include the primary key and attribute columns.
 
-        示例：
+        Example:
 
             primary_key = [('gid',1), ('uid',101)]
             attribute_columns = [('name','张三'), ('mobile',111111111), ('address','中国A地'), ('age',20)]
@@ -321,29 +344,29 @@ class OTSClient(object):
         """
 
         return self._request_helper(
-                    'PutRow', table_name, row, condition, return_type, transaction_id
+            'PutRow', table_name, row, condition, return_type, transaction_id
         )
 
-    def update_row(self, table_name, row, condition, return_type = None, transaction_id = None):
+    def update_row(self, table_name, row, condition, return_type=None, transaction_id=None):
         """
-        说明：更新一行数据。
+        Description: Update a row of data.
 
-        ``table_name``是对应的表名。
-        ``row``表示更新的行数据，包括主键列和属性列，主键列是list；属性列是dict。
-        ``condition``表示执行操作前做条件检查，满足条件才执行，是tablestore.metadata.Condition类的实例。
-        目前支持两种条件检测，一是对行的存在性进行检查，检查条件包括：'IGNORE'，'EXPECT_EXIST'和'EXPECT_NOT_EXIST';二是对属性列值的条件检测。
-        ``return_type``表示返回类型，是tablestore.metadata.ReturnType类的实例，目前仅支持返回PrimaryKey，一般用于主键列自增中。
+        ``table_name`` is the corresponding table name.
+        ``row`` represents the updated row data, including primary key columns and attribute columns. Primary key columns are lists; attribute columns are dictionaries.
+        ``condition`` indicates performing a condition check before executing the operation, and the operation will only be executed if the condition is met. It is an instance of the tablestore.metadata.Condition class.
+        Currently, two types of condition checks are supported: one is checking the existence of the row, with check conditions including 'IGNORE', 'EXPECT_EXIST', and 'EXPECT_NOT_EXIST'; the other is condition checks on the values of attribute columns.
+        ``return_type`` represents the return type, which is an instance of the tablestore.metadata.ReturnType class. Currently, it only supports returning the PrimaryKey, generally used for auto-increment in primary key columns.
 
-        返回：本次操作消耗的CapacityUnit和需要返回的行数据return_row
+        Return: The CapacityUnit consumed by this operation and the row data to be returned (return_row).
 
-        consumed表示消耗的CapacityUnit，是tablestore.metadata.CapacityUnit类的实例。
-        return_row表示需要返回的行数据。
+        consumed represents the CapacityUnit consumed, which is an instance of the tablestore.metadata.CapacityUnit class.
+        return_row represents the row data to be returned.
 
-        示例：
+        Example:
 
             primary_key = [('gid',1), ('uid',101)]
             update_of_attribute_columns = {
-                'put' : [('name','张三丰'), ('address','中国B地')],
+                'put' : [('name','Zhang Sanfeng'), ('address','Location B, China')],
                 'delete' : [('mobile', 1493725896147)],
                 'delete_all' : [('age')],
                 'increment' : [('counter', 1)]
@@ -354,24 +377,24 @@ class OTSClient(object):
         """
 
         return self._request_helper(
-                    'UpdateRow', table_name, row, condition, return_type, transaction_id
+            'UpdateRow', table_name, row, condition, return_type, transaction_id
         )
 
-    def delete_row(self, table_name, row = None, condition = None, return_type = None, transaction_id = None, **kwargs):
+    def delete_row(self, table_name, row=None, condition=None, return_type=None, transaction_id=None, **kwargs):
         """
-        说明：删除一行数据。
+        Description: Delete a row of data.
 
-        ``table_name``是对应的表名。
-        ``row``表示主键。
-        ``condition``表示执行操作前做条件检查，满足条件才执行，是tablestore.metadata.Condition类的实例。
-        目前支持两种条件检测，一是对行的存在性进行检查，检查条件包括：'IGNORE'，'EXPECT_EXIST'和'EXPECT_NOT_EXIST';二是对属性列值的条件检测。
+        ``table_name`` is the corresponding table name.
+        ``row`` represents the primary key.
+        ``condition`` indicates a condition check performed before the operation, which executes only if the condition is met. It is an instance of the tablestore.metadata.Condition class.
+        Currently, two types of condition checks are supported: one checks the existence of the row, with possible conditions including 'IGNORE', 'EXPECT_EXIST', and 'EXPECT_NOT_EXIST'; the other performs a condition check on the value of attribute columns.
 
-        返回：本次操作消耗的CapacityUnit和需要返回的行数据return_row
+        Return: The CapacityUnit consumed by this operation and the row data to be returned (`return_row`).
 
-        consumed表示消耗的CapacityUnit，是tablestore.metadata.CapacityUnit类的实例。
-        return_row表示需要返回的行数据。
+        `consumed` indicates the consumed CapacityUnit, which is an instance of the tablestore.metadata.CapacityUnit class.
+        `return_row` indicates the row data to be returned.
 
-        示例：
+        Example:
 
             primary_key = [('gid',1), ('uid',101)]
             row = Row(primary_key)
@@ -380,39 +403,39 @@ class OTSClient(object):
         """
 
         primary_key = kwargs.get('primary_key', None)
-        # row不为空时，优先使用row参数，但是传参需要primary_key
+        # When row is not empty, the row parameter will be used preferentially, but the primary_key parameter is required for passing parameters.
         if row is not None:
             primary_key = row
-        # 传参为Row时，取出primary_key
+        # When passing Row as a parameter, extract the primary_key
         if isinstance(primary_key, Row):
             primary_key = primary_key.primary_key
         return self._request_helper(
             'DeleteRow', table_name, primary_key, condition, return_type, transaction_id
         )
-    
-    def exe_sql_query(self,query):
+
+    def exe_sql_query(self, query):
         """
-        说明：执行sql query
+        Description: Executes an SQL query.
 
-        ``query``query是需要执行的query。
+        ``query`` is the query to be executed.
         
-        (rows,table_capacity_units,search_capacity_units)
+        (rows, table_capacity_units, search_capacity_units)
 
-        返回：
-        ``table_capacity_units``  本次操作消耗的每张table对应的CapacityUnit
-        ``search_capacity_units`` 本次操作消耗的每个search的CapacityUnit
-        ``rows``                  返回的数据
+        Returns:
+        ``table_capacity_units``  The CapacityUnit consumed for each table by this operation
+        ``search_capacity_units`` The CapacityUnit consumed for each search by this operation
+        ``rows``                  The returned data
         
-        示例：
-        row_list,table_comsume_list,search_comsume_list = client.exe_sql_query(query)
+        Example:
+        row_list, table_consume_list, search_consume_list = client.exe_sql_query(query)
         """
         return self._request_helper(
-                    'SQLQuery', query
+            'SQLQuery', query
         )
 
     def batch_get_row(self, request):
         """
-        说明：批量获取多行数据。
+        Description: Batch retrieve multiple rows of data.
         request = BatchGetRowRequest()
 
         request.add(TableInBatchGetRowItem(myTable0, primary_keys, column_to_get=None, column_filter=None))
@@ -422,9 +445,9 @@ class OTSClient(object):
 
         response = client.batch_get_row(request)
 
-        ``response``为返回的结果，类型为tablestore.metadata.BatchGetRowResponse
+        ``response`` is the returned result, of type tablestore.metadata.BatchGetRowResponse
 
-        示例：
+        Example:
             cond = CompositeColumnCondition(LogicalOperator.AND)
             cond.add_sub_condition(SingleColumnCondition("index", 0, ComparatorType.EQUAL))
             cond.add_sub_condition(SingleColumnCondition("addr", 'china', ComparatorType.EQUAL))
@@ -454,7 +477,7 @@ class OTSClient(object):
 
     def batch_write_row(self, request):
         """
-        说明：批量修改多行数据。
+        Description: Batch modification of multiple rows.
         request = MiltiTableInBatchWriteRowItem()
 
         request.add(TableInBatchWriteRowItem(table0, row_items))
@@ -462,9 +485,9 @@ class OTSClient(object):
 
         response = client.batch_write_row(request)
 
-        ``response``为返回的结果，类型为tablestore.metadata.BatchWriteRowResponse
+        ``response`` is the returned result, of type tablestore.metadata.BatchWriteRowResponse
 
-        示例：
+        Example:
             # put
             row_items = []
             row = Row([('gid',0), ('uid', 0)], [('index', 6), ('addr', 'china')])
@@ -496,7 +519,6 @@ class OTSClient(object):
 
         return BatchWriteRowResponse(request, response)
 
-
     def get_range(self, table_name, direction,
                   inclusive_start_primary_key,
                   exclusive_end_primary_key,
@@ -507,32 +529,32 @@ class OTSClient(object):
                   time_range=None,
                   start_column=None,
                   end_column=None,
-                  token = None,
+                  token=None,
                   transaction_id=None):
         """
-        说明：根据范围条件获取多行数据。
+        Description: Retrieve multiple rows of data based on range conditions.
 
-        ``table_name``是对应的表名。
-        ``direction``表示范围的方向，字符串格式，取值包括'FORWARD'和'BACKWARD'。
-        ``inclusive_start_primary_key``表示范围的起始主键（在范围内）。
-        ``exclusive_end_primary_key``表示范围的结束主键（不在范围内）。
-        ``columns_to_get``是可选参数，表示要获取的列的名称列表，类型为list；如果不填，表示获取所有列。
-        ``limit``是可选参数，表示最多读取多少行；如果不填，则没有限制。
-        ``column_filter``是可选参数，表示读取指定条件的行
-        ``max_version``是可选参数，表示返回的最大版本数目，与time_range必须存在一个。
-        ``time_range``是可选参数，表示返回的版本的范围，于max_version必须存在一个。
-        ``start_column``是可选参数，用于宽行读取，表示本次读取的起始列。
-        ``end_column``是可选参数，用于宽行读取，表示本次读取的结束列。
-        ``token``是可选参数，用于宽行读取，表示本次读取的起始列位置，内容被二进制编码，来源于上次请求的返回结果中。
+        ``table_name`` is the corresponding table name.
+        ``direction`` indicates the direction of the range, in string format, with values including 'FORWARD' and 'BACKWARD'.
+        ``inclusive_start_primary_key`` represents the starting primary key of the range (within the range).
+        ``exclusive_end_primary_key`` represents the ending primary key of the range (not within the range).
+        ``columns_to_get`` is an optional parameter that specifies a list of column names to retrieve; if not provided, all columns are retrieved.
+        ``limit`` is an optional parameter that specifies the maximum number of rows to read; if not provided, there is no limit.
+        ``column_filter`` is an optional parameter that specifies a condition for filtering rows.
+        ``max_version`` is an optional parameter that specifies the maximum number of versions to return; either this or time_range must be specified.
+        ``time_range`` is an optional parameter that specifies the range of versions to return; either this or max_version must be specified.
+        ``start_column`` is an optional parameter used for wide row reading, indicating the starting column for this read operation.
+        ``end_column`` is an optional parameter used for wide row reading, indicating the ending column for this read operation.
+        ``token`` is an optional parameter used for wide row reading, indicating the starting column position for this read operation. It is binary-encoded and originates from the result of the previous request.
 
-        返回：符合条件的结果列表。
+        Returns: A list of results that meet the specified conditions.
 
-        ``consumed``表示本次操作消耗的CapacityUnit，是tablestore.metadata.CapacityUnit类的实例。
-        ``next_start_primary_key``表示下次get_range操作的起始点的主健列，类型为dict。
-        ``row_list``表示本次操作返回的行数据列表，格式为：[Row, ...]。
-        ``next_token``表示最后一行是否还有属性列没有读完，如果next_token不为None，则表示还有，下次get_range需要填充此值。
+        ``consumed`` indicates the CapacityUnit consumed by this operation, which is an instance of the tablestore.metadata.CapacityUnit class.
+        ``next_start_primary_key`` indicates the primary key column for the starting point of the next get_range operation, and its type is dict.
+        ``row_list`` indicates the list of row data returned by this operation, formatted as [Row, ...].
+        ``next_token`` indicates whether there are remaining attributes in the last row that have not been read. If next_token is not None, it means there are more to read, and this value should be filled in the next get_range call.
 
-        示例：
+        Example:
 
             inclusive_start_primary_key = [('gid',1), ('uid',INF_MIN)]
             exclusive_end_primary_key = [('gid',4), ('uid',INF_MAX)]
@@ -545,13 +567,13 @@ class OTSClient(object):
         """
 
         return self._request_helper(
-                    'GetRange', table_name, direction,
-                    inclusive_start_primary_key, exclusive_end_primary_key,
-                    columns_to_get, limit,
-                    column_filter, max_version,
-                    time_range, start_column,
-                    end_column, token,
-                    transaction_id
+            'GetRange', table_name, direction,
+            inclusive_start_primary_key, exclusive_end_primary_key,
+            columns_to_get, limit,
+            column_filter, max_version,
+            time_range, start_column,
+            end_column, token,
+            transaction_id
         )
 
     def xget_range(self, table_name, direction,
@@ -565,31 +587,31 @@ class OTSClient(object):
                    time_range=None,
                    start_column=None,
                    end_column=None,
-                   token = None):
+                   token=None):
         """
-        说明：根据范围条件获取多行数据，iterator版本。
+        Description: Retrieve multiple rows of data based on range conditions, iterator version.
 
-        ``table_name``是对应的表名。
-        ``direction``表示范围的方向，取值为Direction的FORWARD和BACKWARD。
-        ``inclusive_start_primary_key``表示范围的起始主键（在范围内）。
-        ``exclusive_end_primary_key``表示范围的结束主键（不在范围内）。
-        ``consumed_counter``用于消耗的CapacityUnit统计，是tablestore.metadata.CapacityUnit类的实例。
-        ``columns_to_get``是可选参数，表示要获取的列的名称列表，类型为list；如果不填，表示获取所有列。
-        ``count``是可选参数，表示最多读取多少行；如果不填，则尽量读取整个范围内的所有行。
-        ``column_filter``是可选参数，表示读取指定条件的行
-        ``max_version``是可选参数，表示返回的最大版本数目，与time_range必须存在一个。
-        ``time_range``是可选参数，表示返回的版本的范围，于max_version必须存在一个。
-        ``start_column``是可选参数，用于宽行读取，表示本次读取的起始列。
-        ``end_column``是可选参数，用于宽行读取，表示本次读取的结束列。
-        ``token``是可选参数，用于宽行读取，表示本次读取的起始列位置，内容被二进制编码，来源于上次请求的返回结果中。
+        ``table_name`` is the corresponding table name.
+        ``direction`` indicates the direction of the range, taking values FORWARD and BACKWARD from Direction.
+        ``inclusive_start_primary_key`` represents the starting primary key of the range (within the range).
+        ``exclusive_end_primary_key`` represents the ending primary key of the range (outside the range).
+        ``consumed_counter`` is used for CapacityUnit consumption statistics and is an instance of the tablestore.metadata.CapacityUnit class.
+        ``columns_to_get`` is an optional parameter, representing a list of column names to retrieve, with type list; if not specified, it retrieves all columns.
+        ``count`` is an optional parameter, indicating the maximum number of rows to read; if not specified, it attempts to read all rows within the entire range.
+        ``column_filter`` is an optional parameter, indicating the condition for reading specified rows.
+        ``max_version`` is an optional parameter, indicating the maximum number of versions to return; either this or time_range must be specified.
+        ``time_range`` is an optional parameter, indicating the range of versions to return; either this or max_version must be specified.
+        ``start_column`` is an optional parameter, used for wide row reading, indicating the starting column for this read.
+        ``end_column`` is an optional parameter, used for wide row reading, indicating the ending column for this read.
+        ``token`` is an optional parameter, used for wide row reading, indicating the starting column position for this read. The content is encoded in binary and originates from the result of the previous request.
 
-        返回：符合条件的结果列表。
+        Return: A list of results that meet the conditions.
 
-        ``range_iterator``用于获取符合范围条件的行数据的iterator，每次取出的元素格式为：
-        row。其中，row.primary_key为主键列，list类型，
-        row.attribute_columns为属性列，list类型。其它用法见iter类型说明。
+        ``range_iterator`` is used to obtain an iterator for rows that meet the range conditions. Each element fetched has the format:
+        row. Where row.primary_key represents the primary key columns, of list type,
+        row.attribute_columns represent the attribute columns, also of list type. For other usages, see the iter type description.
 
-        示例：
+        Example:
 
             consumed_counter = CapacityUnit(0, 0)
             inclusive_start_primary_key = [('gid',1), ('uid',INF_MIN)]
@@ -633,20 +655,6 @@ class OTSClient(object):
                     left_count -= 1
                     if left_count <= 0:
                         return
-
-
-    def _validate_parameter(self, endpoint, access_key_id, access_key_secret, instance_name):
-        if endpoint is None or endpoint == '':
-            raise OTSClientError('endpoint is None or empty.')
-
-        if access_key_id is None or access_key_id == '':
-            raise OTSClientError('access_key_id is None or empty.')
-
-        if access_key_secret is None or access_key_secret == '':
-            raise OTSClientError('access_key_secret is None or empty.')
-
-        if instance_name is None or instance_name == '':
-            raise OTSClientError('instance_name is None or empty.')
 
     def list_search_index(self, table_name=None):
         """
@@ -722,7 +730,6 @@ class OTSClient(object):
 
         self._request_helper('UpdateSearchIndex', table_name, index_name, index_meta)
 
-
     def describe_search_index(self, table_name, index_name):
         """
         Describe search index.
@@ -739,29 +746,32 @@ class OTSClient(object):
 
         return self._request_helper('DescribeSearchIndex', table_name, index_name)
 
-    def search(self, table_name, index_name, search_query, columns_to_get=None, routing_keys=None):
+    def search(self, table_name, index_name, search_query, columns_to_get=None, routing_keys=None, timeout_s=None):
         """
         Perform search query on search index.
 
-        说明：
+        Description:
         :type table_name: str
-        :param table_name: The name of table.
+        :param table_name: The name of the table.
 
         :type index_name: str
-        :param index_name: The name of index.
+        :param index_name: The name of the index.
 
         :type search_query: tablestore.metadata.SearchQuery
         :param search_query: The query to perform.
 
         :type columns_to_get: tablestore.metadata.ColumnsToGet
-        :param columns_to_get: columns to return.
+        :param columns_to_get: Columns to return.
 
         :type routing_keys: list
-        : param routing_keys: list of routing key.
+        :param routing_keys: List of routing keys.
 
-        返回：查询的结果集。
+        :type timeout_s: int
+        :param timeout_s: timeout for search request.
 
-        ``search_response``表示查询的结果集，包括 search、agg 和 group_by 等的结果，是 tablestore.metadata.SearchResponse 类的实例。
+        Returns: The result set of the query.
+
+        ``search_response`` represents the result set of the query, including results from search, aggregation (agg), and group_by. It is an instance of the tablestore.metadata.SearchResponse class.
 
         Example usage:
             query = TermQuery('k', 'key000')
@@ -771,7 +781,7 @@ class OTSClient(object):
             )
         """
 
-        return self._request_helper('Search', table_name, index_name, search_query, columns_to_get, routing_keys)
+        return self._request_helper('Search', table_name, index_name, search_query, columns_to_get, routing_keys, timeout_s)
 
     def compute_splits(self, table_name, index_name):
         """
@@ -783,52 +793,55 @@ class OTSClient(object):
         :type index_name: str
         :param index_name: The name of index.
 
-        返回：计算并发度的结果。
+        Returns: The result of the split computation.
 
-        ``compute_splits_response``表示并发度计算的结果，是 tablestore.metadata.ComputeSplitsResponse 类的实例。
+        ``compute_splits_response`` represents the result of the split computation, which is an instance of the tablestore.metadata.ComputeSplitsResponse class.
 
         Example usage:
             compute_splits_response = client.compute_splits(table_name, index_name)
             )
         """
-        
+
         return self._request_helper('ComputeSplits', table_name, index_name)
 
-    def parallel_scan(self, table_name, index_name, scan_query, session_id, columns_to_get=None):
+    def parallel_scan(self, table_name, index_name, scan_query, session_id, columns_to_get=None, timeout_s=None):
         """
         Perform parallel scan on search index.
 
         :type table_name: str
-        :param table_name: The name of table.
+        :param table_name: The name of the table.
 
         :type index_name: str
-        :param index_name: The name of index.
+        :param index_name: The name of the index.
 
         :type scan_query: tablestore.metadata.ScanQuery
         :param scan_query: The query to perform.
 
         :type session_id: str
-        :param session_id: The ID of session which get from compute_splits_request's response
+        :param session_id: The ID of the session obtained from compute_splits_request's response.
 
         :type columns_to_get: tablestore.metadata.ColumnsToGet
-        :param columns_to_get: columns to return, allow values: RETURN_SPECIFIED/RETURN_NONE/RETURN_ALL_FROM_INDEX
+        :param columns_to_get: Columns to return, allowed values: RETURN_SPECIFIED/RETURN_NONE/RETURN_ALL_FROM_INDEX
 
-        返回：并发扫描的结果集。
+        :type timeout_s: int
+        :param timeout_s: timeout for parallel_scan request.
 
-        ``parallel_scan_response``表示并发扫描的结果，是 tablestore.metadata.ParallelScanResponse 类的实例。
+        Returns: Result set of parallel scanning.
+
+        ``parallel_scan_response`` represents the result of parallel scanning and is an instance of the tablestore.metadata.ParallelScanResponse class.
 
 
         Example usage:
             query = TermQuery('k', 'key000')
             parallel_scan_response = client.parallel_scan(
                 table_name, index_name,
-                ScanQuery(query, token = token_str, current_parallel_id = 0, max_parallel = 3, limit=100),
+                ScanQuery(query, token=token_str, current_parallel_id=0, max_parallel=3, limit=100),
                 ColumnsToGet(return_type=ColumnReturnType.RETURN_ALL_FROM_INDEX)
             )
         """
 
-        return self._request_helper('ParallelScan', table_name, index_name, scan_query, 
-                                    session_id, columns_to_get)
+        return self._request_helper('ParallelScan', table_name, index_name, scan_query,
+                                    session_id, columns_to_get, timeout_s)
 
     def create_secondary_index(self, table_name, index_meta, include_base_data):
         """
@@ -871,9 +884,9 @@ class OTSClient(object):
         Start a local transaction and get the transaction id.
 
         :type table_name: str
-        :param table_name: The name of table.
+        :param table_name: The name of the table.
 
-        :type key: 类型为dict
+        :type key: dict
         :param key: The partition key.
 
         Example usage:
@@ -901,9 +914,6 @@ class OTSClient(object):
 
         :type transaction_id: str
         :param transaction_id: The id of transaction.
-
-        :type key: 类型为dict
-        :param key: The partition key.
 
         Example usage:
             client.abort_transaction(transaction_id)

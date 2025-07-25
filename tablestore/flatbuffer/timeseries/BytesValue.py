@@ -51,26 +51,15 @@ class BytesValue(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         return o == 0
 
-def BytesValueStart(builder):
-    builder.StartObject(1)
-
+def BytesValueStart(builder): builder.StartObject(1)
 def Start(builder):
-    BytesValueStart(builder)
-
-def BytesValueAddValue(builder, value):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(value), 0)
-
+    return BytesValueStart(builder)
+def BytesValueAddValue(builder, value): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(value), 0)
 def AddValue(builder, value):
-    BytesValueAddValue(builder, value)
-
-def BytesValueStartValueVector(builder, numElems):
-    return builder.StartVector(1, numElems, 1)
-
+    return BytesValueAddValue(builder, value)
+def BytesValueStartValueVector(builder, numElems): return builder.StartVector(1, numElems, 1)
 def StartValueVector(builder, numElems):
     return BytesValueStartValueVector(builder, numElems)
-
-def BytesValueEnd(builder):
-    return builder.EndObject()
-
+def BytesValueEnd(builder): return builder.EndObject()
 def End(builder):
     return BytesValueEnd(builder)

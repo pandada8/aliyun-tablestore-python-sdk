@@ -4,7 +4,7 @@ import sys
 import six
 import struct
 from builtins import int
-from tablestore.const import *
+from tablestore.const_module import *
 from tablestore.metadata import *
 from tablestore.error import *
 from .plain_buffer_consts import *

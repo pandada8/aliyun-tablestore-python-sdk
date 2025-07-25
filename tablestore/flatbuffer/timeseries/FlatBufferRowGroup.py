@@ -85,7 +85,7 @@ class FlatBufferRowGroup(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from timeseries.FlatBufferRowInGroup import FlatBufferRowInGroup
+            from tablestore.flatbuffer.timeseries.FlatBufferRowInGroup import FlatBufferRowInGroup
             obj = FlatBufferRowInGroup()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -103,56 +103,30 @@ class FlatBufferRowGroup(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(10))
         return o == 0
 
-def FlatBufferRowGroupStart(builder):
-    builder.StartObject(4)
-
+def FlatBufferRowGroupStart(builder): builder.StartObject(4)
 def Start(builder):
-    FlatBufferRowGroupStart(builder)
-
-def FlatBufferRowGroupAddMeasurementName(builder, measurementName):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(measurementName), 0)
-
+    return FlatBufferRowGroupStart(builder)
+def FlatBufferRowGroupAddMeasurementName(builder, measurementName): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(measurementName), 0)
 def AddMeasurementName(builder, measurementName):
-    FlatBufferRowGroupAddMeasurementName(builder, measurementName)
-
-def FlatBufferRowGroupAddFieldNames(builder, fieldNames):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(fieldNames), 0)
-
+    return FlatBufferRowGroupAddMeasurementName(builder, measurementName)
+def FlatBufferRowGroupAddFieldNames(builder, fieldNames): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(fieldNames), 0)
 def AddFieldNames(builder, fieldNames):
-    FlatBufferRowGroupAddFieldNames(builder, fieldNames)
-
-def FlatBufferRowGroupStartFieldNamesVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
+    return FlatBufferRowGroupAddFieldNames(builder, fieldNames)
+def FlatBufferRowGroupStartFieldNamesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartFieldNamesVector(builder, numElems):
     return FlatBufferRowGroupStartFieldNamesVector(builder, numElems)
-
-def FlatBufferRowGroupAddFieldTypes(builder, fieldTypes):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(fieldTypes), 0)
-
+def FlatBufferRowGroupAddFieldTypes(builder, fieldTypes): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(fieldTypes), 0)
 def AddFieldTypes(builder, fieldTypes):
-    FlatBufferRowGroupAddFieldTypes(builder, fieldTypes)
-
-def FlatBufferRowGroupStartFieldTypesVector(builder, numElems):
-    return builder.StartVector(1, numElems, 1)
-
+    return FlatBufferRowGroupAddFieldTypes(builder, fieldTypes)
+def FlatBufferRowGroupStartFieldTypesVector(builder, numElems): return builder.StartVector(1, numElems, 1)
 def StartFieldTypesVector(builder, numElems):
     return FlatBufferRowGroupStartFieldTypesVector(builder, numElems)
-
-def FlatBufferRowGroupAddRows(builder, rows):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(rows), 0)
-
+def FlatBufferRowGroupAddRows(builder, rows): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(rows), 0)
 def AddRows(builder, rows):
-    FlatBufferRowGroupAddRows(builder, rows)
-
-def FlatBufferRowGroupStartRowsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
+    return FlatBufferRowGroupAddRows(builder, rows)
+def FlatBufferRowGroupStartRowsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartRowsVector(builder, numElems):
     return FlatBufferRowGroupStartRowsVector(builder, numElems)
-
-def FlatBufferRowGroupEnd(builder):
-    return builder.EndObject()
-
+def FlatBufferRowGroupEnd(builder): return builder.EndObject()
 def End(builder):
     return FlatBufferRowGroupEnd(builder)

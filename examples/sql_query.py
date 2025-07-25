@@ -68,7 +68,7 @@ def drop_table(client):
 
 
 if __name__ == '__main__':
-    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE)
+    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE, region=OTS_REGION)
     create_table(client)
     for query in create_queries:
         exe_sql_query(client, query)

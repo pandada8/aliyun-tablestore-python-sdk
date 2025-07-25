@@ -12,7 +12,7 @@ import tablestore.protobuf.table_store_filter_pb2 as filter_pb
 import tablestore.protobuf.search_pb2 as search_pb
 import tablestore.protobuf.timeseries_pb2 as timeseries_pb2
 
-from dataprotocol.SQLResponseColumns import *
+from tablestore.flatbuffer.dataprotocol.SQLResponseColumns import *
 from tablestore.flatbuffer.flat_buffer_decoder import *
 
 

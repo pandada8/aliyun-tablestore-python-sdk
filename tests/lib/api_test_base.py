@@ -1,4 +1,7 @@
 #*-coding:utf-8-*-
+
+from tablestore.credentials import StaticCredentialsProvider
+
 from . import test_config
 from . import restriction
 from builtins import int
@@ -17,11 +20,12 @@ import logging
 
 def get_no_retry_client():
     no_retry_client = OTSClient(test_config.OTS_ENDPOINT,
-                           test_config.OTS_ACCESS_KEY_ID,
-                           test_config.OTS_ACCESS_KEY_SECRET,
-                           test_config.OTS_INSTANCE,
-                           logger_name='APITestBase',
-                           retry_policy=NoRetryPolicy())
+                                test_config.OTS_ACCESS_KEY_ID,
+                                test_config.OTS_ACCESS_KEY_SECRET,
+                                test_config.OTS_INSTANCE,
+                                region=test_config.OTS_REGION,
+                                logger_name='APITestBase',
+                                retry_policy=NoRetryPolicy())
     return no_retry_client
 
 
@@ -54,14 +58,24 @@ class APITestBase(TestCase):
             pass
 
     def setUp(self):
-        self.client_test = OTSClient(
-            test_config.OTS_ENDPOINT,
-            test_config.OTS_ACCESS_KEY_ID,
-            test_config.OTS_ACCESS_KEY_SECRET,
-            test_config.OTS_INSTANCE,
-            logger_name='APITestBase',
-            retry_policy=DefaultRetryPolicy(),
-        )
+        if random.choice([True, False]):
+            self.logger.info("use credentials_provider")
+            self.client_test = OTSClient(
+                test_config.OTS_ENDPOINT,
+                instance_name=test_config.OTS_INSTANCE,
+                credentials_provider=StaticCredentialsProvider(test_config.OTS_ACCESS_KEY_ID, test_config.OTS_ACCESS_KEY_SECRET),
+                logger_name='APITestBase',
+                retry_policy=DefaultRetryPolicy(),
+            )
+        else:
+            self.client_test = OTSClient(
+                test_config.OTS_ENDPOINT,
+                test_config.OTS_ACCESS_KEY_ID,
+                test_config.OTS_ACCESS_KEY_SECRET,
+                test_config.OTS_INSTANCE,
+                logger_name='APITestBase',
+                retry_policy=DefaultRetryPolicy(),
+            )
         self.delete_table_and_index()
         time.sleep(1)  # to avoid too frequent table operations
 
@@ -74,7 +88,7 @@ class APITestBase(TestCase):
         self.assert_equal(error.message.encode('utf-8'), error_message)
 
     def assert_false(self):
-        self.logger.warn("\nAssertion Failed\n" + "".join(traceback.format_stack()))
+        self.logger.warning("\nAssertion Failed\n" + "".join(traceback.format_stack()))
         raise AssertionError
 
     def assert_equal(self, res, expect_res):
@@ -103,7 +117,7 @@ class APITestBase(TestCase):
         read_cu_sum = 0
         write_cu_sum = 0
         max_elapsed_time = 1.0 / (read_cu if read_cu != 0 else write_cu) * count
-        self.logger.info("StartTime: %s, Count: %s, ReadCU: %s, WriteCU: %s, MaxElapsedTime: %s" % (start_time, count, read_cu, write_cu, max_elapsed_time));
+        self.logger.info("StartTime: %s, Count: %s, ReadCU: %s, WriteCU: %s, MaxElapsedTime: %s" % (start_time, count, read_cu, write_cu, max_elapsed_time))
 
         while count != 0:
             try:
@@ -289,7 +303,7 @@ class APITestBase(TestCase):
 
     def wait_for_partition_load(self, table_name, instance_name=""):
         print("Wait for loading partition")
-        time.sleep(60)
+        time.sleep(2)
 
     def wait_for_search_index_ready(self, client, table_name, index_name):
         max_wait_time = 400
@@ -359,7 +373,7 @@ class APITestBase(TestCase):
         self.wait_for_partition_load(table_name)
 
     def _create_maxsize_row(self, pk_value = 'V'):
-        """创建table+生成size恰好为max的pk dict和column dict"""
+        """Create table + generate pk dict and column dict with size exactly equal to max"""
         pks = []
         for i in range(0, 4):
             pk = 'PK' + str(i)

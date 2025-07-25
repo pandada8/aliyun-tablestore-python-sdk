@@ -132,7 +132,7 @@ class FieldValues(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from timeseries.BytesValue import BytesValue
+            from tablestore.flatbuffer.timeseries.BytesValue import BytesValue
             obj = BytesValue()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -150,74 +150,39 @@ class FieldValues(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(12))
         return o == 0
 
-def FieldValuesStart(builder):
-    builder.StartObject(5)
-
+def FieldValuesStart(builder): builder.StartObject(5)
 def Start(builder):
-    FieldValuesStart(builder)
-
-def FieldValuesAddLongValues(builder, longValues):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(longValues), 0)
-
+    return FieldValuesStart(builder)
+def FieldValuesAddLongValues(builder, longValues): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(longValues), 0)
 def AddLongValues(builder, longValues):
-    FieldValuesAddLongValues(builder, longValues)
-
-def FieldValuesStartLongValuesVector(builder, numElems):
-    return builder.StartVector(8, numElems, 8)
-
+    return FieldValuesAddLongValues(builder, longValues)
+def FieldValuesStartLongValuesVector(builder, numElems): return builder.StartVector(8, numElems, 8)
 def StartLongValuesVector(builder, numElems):
     return FieldValuesStartLongValuesVector(builder, numElems)
-
-def FieldValuesAddBoolValues(builder, boolValues):
-    builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(boolValues), 0)
-
+def FieldValuesAddBoolValues(builder, boolValues): builder.PrependUOffsetTRelativeSlot(1, flatbuffers.number_types.UOffsetTFlags.py_type(boolValues), 0)
 def AddBoolValues(builder, boolValues):
-    FieldValuesAddBoolValues(builder, boolValues)
-
-def FieldValuesStartBoolValuesVector(builder, numElems):
-    return builder.StartVector(1, numElems, 1)
-
+    return FieldValuesAddBoolValues(builder, boolValues)
+def FieldValuesStartBoolValuesVector(builder, numElems): return builder.StartVector(1, numElems, 1)
 def StartBoolValuesVector(builder, numElems):
     return FieldValuesStartBoolValuesVector(builder, numElems)
-
-def FieldValuesAddDoubleValues(builder, doubleValues):
-    builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(doubleValues), 0)
-
+def FieldValuesAddDoubleValues(builder, doubleValues): builder.PrependUOffsetTRelativeSlot(2, flatbuffers.number_types.UOffsetTFlags.py_type(doubleValues), 0)
 def AddDoubleValues(builder, doubleValues):
-    FieldValuesAddDoubleValues(builder, doubleValues)
-
-def FieldValuesStartDoubleValuesVector(builder, numElems):
-    return builder.StartVector(8, numElems, 8)
-
+    return FieldValuesAddDoubleValues(builder, doubleValues)
+def FieldValuesStartDoubleValuesVector(builder, numElems): return builder.StartVector(8, numElems, 8)
 def StartDoubleValuesVector(builder, numElems):
     return FieldValuesStartDoubleValuesVector(builder, numElems)
-
-def FieldValuesAddStringValues(builder, stringValues):
-    builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(stringValues), 0)
-
+def FieldValuesAddStringValues(builder, stringValues): builder.PrependUOffsetTRelativeSlot(3, flatbuffers.number_types.UOffsetTFlags.py_type(stringValues), 0)
 def AddStringValues(builder, stringValues):
-    FieldValuesAddStringValues(builder, stringValues)
-
-def FieldValuesStartStringValuesVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
+    return FieldValuesAddStringValues(builder, stringValues)
+def FieldValuesStartStringValuesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartStringValuesVector(builder, numElems):
     return FieldValuesStartStringValuesVector(builder, numElems)
-
-def FieldValuesAddBinaryValues(builder, binaryValues):
-    builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(binaryValues), 0)
-
+def FieldValuesAddBinaryValues(builder, binaryValues): builder.PrependUOffsetTRelativeSlot(4, flatbuffers.number_types.UOffsetTFlags.py_type(binaryValues), 0)
 def AddBinaryValues(builder, binaryValues):
-    FieldValuesAddBinaryValues(builder, binaryValues)
-
-def FieldValuesStartBinaryValuesVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
+    return FieldValuesAddBinaryValues(builder, binaryValues)
+def FieldValuesStartBinaryValuesVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartBinaryValuesVector(builder, numElems):
     return FieldValuesStartBinaryValuesVector(builder, numElems)
-
-def FieldValuesEnd(builder):
-    return builder.EndObject()
-
+def FieldValuesEnd(builder): return builder.EndObject()
 def End(builder):
     return FieldValuesEnd(builder)

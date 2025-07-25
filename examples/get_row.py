@@ -66,9 +66,25 @@ def get_row2(client):
     print('Value of primary key: %s' % return_row.primary_key)
     print('Value of attribute: %s' % return_row.attribute_columns)
 
+def get_row3(client):
+    primary_key = [('uid', 1), ('gid', 101)]
+    columns_to_get = []
+
+    cond = CompositeColumnCondition(LogicalOperator.AND)
+    cond.add_sub_condition(SingleColumnCondition("growth", 0.9, ComparatorType.NOT_EQUAL))
+    cond.add_sub_condition(SingleColumnRegexCondition("Alibaba", ComparatorType.EXIST, None))
+
+    consumed, return_row, next_token = client.get_row(table_name, primary_key, columns_to_get, cond, 1,
+                                                      start_column='Alibaba', end_column='name')
+
+    print('Read succeed, consume %s read cu.' % consumed.read)
+
+    print('Value of primary key: %s' % return_row.primary_key)
+    print('Value of attribute: %s' % return_row.attribute_columns)
+
 
 if __name__ == '__main__':
-    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE)
+    client = OTSClient(OTS_ENDPOINT, OTS_ACCESS_KEY_ID, OTS_ACCESS_KEY_SECRET, OTS_INSTANCE, region=OTS_REGION)
     try:
         delete_table(client)
     except:
@@ -79,4 +95,5 @@ if __name__ == '__main__':
     put_row(client)
     get_row(client)
     get_row2(client)
+    get_row3(client)
     delete_table(client)

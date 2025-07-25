@@ -355,6 +355,10 @@ class LogicalOperator(object):
         "LogicalOperator.OR"
     ]
 
+class CastType(IntEnum):
+    VT_INTEGER = 0
+    VT_DOUBLE = 1
+    VT_STRING = 2
 
 class ComparatorType(object):
     EQUAL = 0
@@ -363,8 +367,21 @@ class ComparatorType(object):
     GREATER_EQUAL = 3
     LESS_THAN = 4
     LESS_EQUAL = 5
+    EXIST = 6
+    NOT_EXIST = 7
 
     __values__ = [
+        EQUAL,
+        NOT_EQUAL,
+        GREATER_THAN,
+        GREATER_EQUAL,
+        LESS_THAN,
+        LESS_EQUAL,
+        EXIST,
+        NOT_EXIST,
+    ]
+
+    __single_condition_values__ = [
         EQUAL,
         NOT_EQUAL,
         GREATER_THAN,
@@ -380,12 +397,24 @@ class ComparatorType(object):
         "ComparatorType.GREATER_EQUAL",
         "ComparatorType.LESS_THAN",
         "ComparatorType.LESS_EQUAL",
+        "ComparatorType.EXIST",
+        "ComparatorType.NOT_EXIST",
+    ]
+
+    __single_condition_members__ = [
+        "ComparatorType.EQUAL",
+        "ComparatorType.NOT_EQUAL",
+        "ComparatorType.GREATER_THAN",
+        "ComparatorType.GREATER_EQUAL",
+        "ComparatorType.LESS_THAN",
+        "ComparatorType.LESS_EQUAL",
     ]
 
 
 class ColumnConditionType(object):
     COMPOSITE_COLUMN_CONDITION = 0
     SINGLE_COLUMN_CONDITION = 1
+    SINGLE_COLUMN_REGEX_CONDITION = 2
 
 
 class ColumnCondition(DefaultJsonObject):
@@ -440,13 +469,13 @@ class SingleColumnCondition(ColumnCondition):
 
     def set_pass_if_missing(self, pass_if_missing):
         """
-        设置```pass_if_missing```
+        Set ```pass_if_missing```
 
-        由于OTS一行的属性列不固定，有可能存在有condition条件的列在该行不存在的情况，这时
-        参数控制在这种情况下对该行的检查结果。
-        如果设置为True，则若列在该行中不存在，则检查条件通过。
-        如果设置为False，则若列在该行中不存在，则检查条件失败。
-        默认值为True。
+        Since the attribute columns of a row in OTS are not fixed, there might be cases where the column with a condition does not exist in that row. In such cases, 
+        this parameter controls the check result for that row.
+        If set to True, the check will pass if the column does not exist in the row.
+        If set to False, the check will fail if the column does not exist in the row.
+        The default value is True.
         """
         if not isinstance(pass_if_missing, bool):
             raise OTSClientError(
@@ -492,9 +521,88 @@ class SingleColumnCondition(ColumnCondition):
         return self.column_value
 
     def set_comparator(self, comparator):
-        if comparator not in ComparatorType.__values__:
+        if comparator not in ComparatorType.__single_condition_values__:
             raise OTSClientError(
                 "Expect input comparator of SingleColumnCondition should be one of %s, but '%s'" %
+                (str(ComparatorType.__single_condition_members__), comparator)
+            )
+        self.comparator = comparator
+
+    def get_comparator(self):
+        return self.comparator
+
+class RegexRule(DefaultJsonObject):
+    def __init__(self, regex_input: str, cast_type: CastType):
+        self.regex = None
+        self.cast_type = None
+        self.set_regex(regex_input)
+        self.set_cast_type(cast_type)
+
+    def set_regex(self, regex_input):
+        if not isinstance(regex_input, (six.text_type, six.binary_type)):
+            raise OTSClientError("regex_input should be an instance of str, not %s" %
+                                 regex_input.__class__.__name__)
+        self.regex = regex_input
+
+    def set_cast_type(self, cast_type):
+        if not isinstance(cast_type, CastType):
+            raise OTSClientError("input cast_type should be an instance of CastType, not %s" %
+                                 cast_type.__class__.__name__)
+        self.cast_type = cast_type
+
+    def get_regex(self):
+        return self.regex
+
+    def get_cast_type(self):
+        return self.cast_type
+
+class SingleColumnRegexCondition(ColumnCondition):
+    def __init__(self, column_name, comparator,
+                 column_value=None, regex_rule: RegexRule = None, latest_version_only=True):
+        self.column_name = None
+        self.comparator = None
+        self.column_value = None
+        self.latest_version_only = None
+        self.regex_rule = None
+
+        self.set_column_name(column_name)
+        self.set_comparator(comparator)
+        self.check_arguments(column_value, comparator)
+        if column_value is None:
+            column_value = 0
+        self.set_column_value(column_value)
+        self.set_regex_rule(regex_rule)
+        self.set_latest_version_only(latest_version_only)
+
+    def get_type(self):
+        return ColumnConditionType.SINGLE_COLUMN_REGEX_CONDITION
+
+    @staticmethod
+    def check_arguments(column_value, comparator):
+        if column_value is not None and comparator in [ComparatorType.EXIST, ComparatorType.NOT_EXIST]:
+            raise OTSClientError(
+                "when column_value is set, comparator should not be EXIST or NOT_EXIST, but now is %s" % ComparatorType.__members__[comparator])
+        if column_value is None and comparator not in [ComparatorType.EXIST, ComparatorType.NOT_EXIST]:
+            raise OTSClientError(
+                "when column_value is not set, comparator should be EXIST or NOT_EXIST, but now is %s" % ComparatorType.__members__[comparator])
+
+    def set_column_name(self, column_name):
+        if not isinstance(column_name, (six.text_type, six.binary_type)):
+            raise OTSClientError(
+                "The input column_name of SingleColumnRegexCondition should be an instance of str, not %s" %
+                column_name.__class__.__name__
+            )
+        if column_name is None:
+            raise OTSClientError("The input column_name of SingleColumnRegexCondition should not be None")
+        self.column_name = column_name
+
+    def get_column_name(self):
+        return self.column_name
+
+    def set_comparator(self, comparator):
+        if comparator not in ComparatorType.__values__:
+            raise OTSClientError(
+                "Expect input comparator of SingleColumnRegexCondition should be one of %s, but '%s'" %
                 (str(ComparatorType.__members__), comparator)
             )
         self.comparator = comparator
@@ -502,6 +610,39 @@ class SingleColumnCondition(ColumnCondition):
     def get_comparator(self):
         return self.comparator
 
+    def set_column_value(self, column_value):
+        if column_value is None:
+            raise OTSClientError(
+                "The input column_value of SingleColumnRegexCondition.set_column_value should not be None")
+        self.column_value = column_value
+
+    def get_column_value(self):
+        return self.column_value
+
+    def set_regex_rule(self, regex_rule):
+        if regex_rule is not None and not isinstance(regex_rule, RegexRule):
+            raise OTSClientError("input regex_rule should be an instance of RegexRule or None, not %s" %
+                                 regex_rule.__class__.__name__)
+        self.regex_rule = regex_rule
+
+    def get_regex_rule(self):
+        return self.regex_rule
+
+    def set_latest_version_only(self, latest_version_only):
+        if not isinstance(latest_version_only, bool):
+            raise OTSClientError(
+                "The input latest_version_only of SingleColumnRegexCondition should be an instance of Bool, not %s" %
+                latest_version_only.__class__.__name__
+            )
+        self.latest_version_only = latest_version_only
+
+    def get_latest_version_only(self):
+        return self.latest_version_only
+
+    @staticmethod
+    def get_pass_if_missing():
+        """Always false for SingleColumnRegexCondition"""
+        return False
 
 class RowExistenceExpectation(object):
     IGNORE = "IGNORE"
@@ -611,9 +752,10 @@ class BatchGetRowRequest(DefaultJsonObject):
 
     def add(self, table_item):
         """
-        说明：添加tablestore.metadata.TableInBatchGetRowItem对象
-        注意：对象内部存储tablestore.metadata.TableInBatchGetRowItem对象采用‘字典’的形式，Key是表
-              的名字，因此如果插入同表名的对象，那么之前的对象将被覆盖。
+        Description: Add a tablestore.metadata.TableInBatchGetRowItem object.
+        Note: The internal storage of the object uses a 'dictionary' format, where the key is the table 
+              name. Therefore, if an object with the same table name is inserted, the previous object will 
+              be overwritten.
         """
         if not isinstance(table_item, TableInBatchGetRowItem):
             raise OTSClientError(
@@ -669,9 +811,10 @@ class BatchWriteRowRequest(DefaultJsonObject):
 
     def add(self, table_item):
         """
-        说明：添加tablestore.metadata.TableInBatchWriteRowItem对象
-        注意：对象内部存储tablestore.metadata.TableInBatchWriteRowItem对象采用‘字典’的形式，Key是表
-              的名字，因此如果插入同表名的对象，那么之前的对象将被覆盖。
+        Description: Add a tablestore.metadata.TableInBatchWriteRowItem object.
+        Note: The internal storage of the tablestore.metadata.TableInBatchWriteRowItem object uses a 'dictionary' format, 
+              where the key is the table name. Therefore, if an object with the same table name is inserted, 
+              the previous object will be overwritten.
         """
         if not isinstance(table_item, TableInBatchWriteRowItem):
             raise OTSClientError(
@@ -852,19 +995,20 @@ class Query(DefaultJsonObject):
 
 class MatchQuery(Query):
 
-    def __init__(self, field_name, text, minimum_should_match=None, operator=None):
+    def __init__(self, field_name, text, minimum_should_match=None, operator=None, weight=None):
         self.field_name = field_name
         self.text = text
         self.minimum_should_match = minimum_should_match
         self.operator = operator
+        self.weight = weight
 
 
 class MatchPhraseQuery(Query):
 
-    def __init__(self, field_name, text):
+    def __init__(self, field_name, text, weight=None):
         self.field_name = field_name
         self.text = text
-
+        self.weight = weight
 
 class MatchAllQuery(Query):
 
@@ -874,16 +1018,18 @@ class MatchAllQuery(Query):
 
 class TermQuery(Query):
 
-    def __init__(self, field_name, column_value):
+    def __init__(self, field_name, column_value, weight=None):
         self.field_name = field_name
         self.column_value = column_value
+        self.weight = weight
 
 
 class TermsQuery(Query):
 
-    def __init__(self, field_name, column_values):
+    def __init__(self, field_name, column_values, weight=None):
         self.field_name = field_name
         self.column_values = column_values
+        self.weight = weight
 
 
 class RangeQuery(Query):
@@ -898,16 +1044,18 @@ class RangeQuery(Query):
 
 class PrefixQuery(Query):
 
-    def __init__(self, field_name, prefix):
+    def __init__(self, field_name, prefix, weight=None):
         self.field_name = field_name
         self.prefix = prefix
+        self.weight = weight
 
 
 class WildcardQuery(Query):
 
-    def __init__(self, field_name, value):
+    def __init__(self, field_name, value, weight=None):
         self.field_name = field_name
         self.value = value
+        self.weight = weight
 
 
 class BoolQuery(Query):
@@ -923,11 +1071,12 @@ class BoolQuery(Query):
 
 class NestedQuery(Query):
 
-    def __init__(self, path, query, score_mode=ScoreMode.NONE, inner_hits=None):
+    def __init__(self, path, query, score_mode=ScoreMode.NONE, inner_hits=None, weight=None):
         self.path = path
         self.query = query
         self.score_mode = score_mode
         self.inner_hits = inner_hits
+        self.weight = weight
 
 
 class InnerHits(object):
@@ -995,11 +1144,12 @@ class ExistsQuery(Query):
 
 class KnnVectorQuery(Query):
 
-    def __init__(self, field_name, top_k=None, float32_query_vector=None, filter=None):
+    def __init__(self, field_name, top_k=None, float32_query_vector=None, filter=None, weight=None):
         self.field_name = field_name
         self.top_k = top_k
         self.float32_query_vector = float32_query_vector
         self.filter = filter
+        self.weight = weight
 
 
 class SearchQuery(DefaultJsonObject):
@@ -1189,15 +1339,15 @@ class TimeseriesMetaOptions(object):
 
 class TimeseriesTableMeta(object):
     """
-        表的结构信息，包含表的名称以及表的配置信息。
+        Table structure information, including the table name and configuration details.
 
-        参数:
-            timeseries_table_name 表的名称
-            timeseries_table_options 表的配置项, 包括数据的TTL等。
-            timeseries_meta_options 时间线元数据相关配置项，包括元数据的TTL等。
-            status 表的状态。
-            timeseries_keys 自定义主键列。
-            field_primary_keys 扩展主键列。示例值：[('gid', 'INTEGER'), ('uid', 'INTEGER', PK_AUTO_INCR)]
+        Parameters:
+            timeseries_table_name Name of the table.
+            timeseries_table_options Table configuration options, including data TTL, etc.
+            timeseries_meta_options Timeline metadata-related configuration options, including metadata TTL, etc.
+            status The status of the table.
+            timeseries_keys Custom primary key columns.
+            field_primary_keys Extended primary key columns. Example value: `[('gid', 'INTEGER'), ('uid', 'INTEGER', PK_AUTO_INCR)]`
         """
 
     def __init__(
@@ -1218,11 +1368,11 @@ class TimeseriesTableMeta(object):
 
 class TimeseriesAnalyticalStore(object):
     """
-    分析存储配置信息
-    参数:
-    analytical_store_name 分析存储名称
-    time_to_live 分析存储数据保留时间
-    sync_option 分析存储同步方式，可选值：SYNC_TYPE_FULL SYNC_TYPE_INCR
+    Analyze and store configuration information
+    Parameters:
+    `analytical_store_name` The name of the analytical store
+    `time_to_live` Data retention time for the analytical store
+    `sync_option` Synchronization method for the analytical store, optional values: `SYNC_TYPE_FULL` `SYNC_TYPE_INCR`
     """
 
     def __init__(self, analytical_store_name: str, time_to_live: int = None, sync_option=None):
@@ -1233,9 +1383,9 @@ class TimeseriesAnalyticalStore(object):
 
 class LastpointIndexMeta(object):
     """
-    Lastpoint索引配置信息
-    参数:
-    index_table_name Lastpoint索引名称
+    Lastpoint index configuration information
+    Parameters:
+    index_table_name Lastpoint index name
     """
 
     def __init__(self, index_table_name: str):
@@ -1245,13 +1395,13 @@ class LastpointIndexMeta(object):
 class CreateTimeseriesTableRequest(object):
 
     """
-    创建时序表请求
-    参数:
-    table_meta 时序表的配置信息
-    analytical_stores 创建分析存储的配置信息
-    enable_analytical_store 是否开启分析存储
-    lastpoint_index_metas Lastpoint索引配置
-    """
+    Create a time-series table request
+    Parameters:
+    table_meta Configuration information for the time-series table
+    analytical_stores Configuration information for creating analytical storage
+    enable_analytical_store Whether to enable analytical storage
+    lastpoint_index_metas Lastpoint index configuration
+"""
     def __init__(self,
                  table_meta: TimeseriesTableMeta,
                  analytical_stores: List[TimeseriesAnalyticalStore] = None,

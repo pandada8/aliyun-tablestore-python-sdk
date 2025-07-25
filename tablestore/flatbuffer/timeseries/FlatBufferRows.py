@@ -31,7 +31,7 @@ class FlatBufferRows(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from timeseries.FlatBufferRowGroup import FlatBufferRowGroup
+            from tablestore.flatbuffer.timeseries.FlatBufferRowGroup import FlatBufferRowGroup
             obj = FlatBufferRowGroup()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -49,26 +49,15 @@ class FlatBufferRows(object):
         o = flatbuffers.number_types.UOffsetTFlags.py_type(self._tab.Offset(4))
         return o == 0
 
-def FlatBufferRowsStart(builder):
-    builder.StartObject(1)
-
+def FlatBufferRowsStart(builder): builder.StartObject(1)
 def Start(builder):
-    FlatBufferRowsStart(builder)
-
-def FlatBufferRowsAddRowGroups(builder, rowGroups):
-    builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(rowGroups), 0)
-
+    return FlatBufferRowsStart(builder)
+def FlatBufferRowsAddRowGroups(builder, rowGroups): builder.PrependUOffsetTRelativeSlot(0, flatbuffers.number_types.UOffsetTFlags.py_type(rowGroups), 0)
 def AddRowGroups(builder, rowGroups):
-    FlatBufferRowsAddRowGroups(builder, rowGroups)
-
-def FlatBufferRowsStartRowGroupsVector(builder, numElems):
-    return builder.StartVector(4, numElems, 4)
-
+    return FlatBufferRowsAddRowGroups(builder, rowGroups)
+def FlatBufferRowsStartRowGroupsVector(builder, numElems): return builder.StartVector(4, numElems, 4)
 def StartRowGroupsVector(builder, numElems):
     return FlatBufferRowsStartRowGroupsVector(builder, numElems)
-
-def FlatBufferRowsEnd(builder):
-    return builder.EndObject()
-
+def FlatBufferRowsEnd(builder): return builder.EndObject()
 def End(builder):
     return FlatBufferRowsEnd(builder)

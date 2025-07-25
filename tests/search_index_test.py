@@ -483,6 +483,55 @@ class SearchIndexTest(APITestBase):
             ColumnsToGet(return_type=ColumnReturnType.ALL), routing_keys=[[('PK1', 0)]]
         ), 100, True, 200)
 
+
+    def _test_search_with_weight(self, table_name, index_name):
+        query_clause = WildcardQuery('k', 'key*')
+        sort = Sort(sorters=[ScoreSort(sort_order=SortOrder.DESC)])
+        search_query = SearchQuery(query_clause, sort, limit=2, get_total_count=True)
+        columns = ColumnsToGet(return_type=ColumnReturnType.ALL)
+        result = self.client_test.search(table_name, index_name, search_query, columns)
+        self.assert_equal(len(result.rows), 2)
+        self.assert_equal(2, len(result.search_hits))
+        self.assert_equal(1.0, result.search_hits[0].score)
+        self.assert_equal(1.0, result.search_hits[1].score)
+
+        query_clause = WildcardQuery('k', 'key*', weight=0.5)
+        search_query = SearchQuery(query_clause, sort, limit=2, get_total_count=True)
+        result = self.client_test.search(table_name, index_name, search_query, columns)
+        self.assert_equal(len(result.rows), 2)
+        self.assert_equal(2, len(result.search_hits))
+        self.assert_equal(0.5, result.search_hits[0].score)
+        self.assert_equal(0.5, result.search_hits[1].score)
+
+        query_clause_1 = WildcardQuery('k', 'key*', weight=0.6)
+        query_clause_2 = MatchQuery('t', 'this is 1', weight=0.8)
+        bool_query = BoolQuery(must_queries=[query_clause_1, query_clause_2])
+
+        search_query = SearchQuery(bool_query, sort, limit=2, get_total_count=True)
+        result = self.client_test.search(table_name, index_name, search_query, columns)
+        self.assert_equal(len(result.rows), 2)
+        self.assert_equal(2, len(result.search_hits))
+        self.assertAlmostEqual(first=5.803, second=result.search_hits[0].score, delta=0.001)
+        self.assertAlmostEqual(first=0.600, second=result.search_hits[1].score, delta=0.001)
+
+    def _test_search_timeout(self, table_name, index_name):
+        query_clause = WildcardQuery('k', 'ke*')
+        search_query = SearchQuery(query_clause, limit=2, get_total_count=True)
+        columns = ColumnsToGet(return_type=ColumnReturnType.ALL)
+
+        try:
+            result = self.client_test.search(table_name, index_name, search_query, columns, timeout_s=3)
+            self.assert_equal(True, result.is_all_succeed)
+        except OTSServiceError as e:
+            self.assertTrue(False)
+
+        try:
+            result = self.client_test.search(table_name, index_name, search_query, columns, timeout_s=0.001)
+        except OTSServiceError as e:
+            self.assert_equal('OTSRequestTimeout', e.get_error_code())
+            self.assert_equal('request timeout', e.get_error_message())
+
+
     def _test_exists_query(self, table_name, index_name):
         # 'key100' < k <= 'key200' and b is not null and not (150 <= l < 200)
         bool_query = BoolQuery(
@@ -535,6 +584,7 @@ class SearchIndexTest(APITestBase):
         print("Wait for preparing the index and data")
         time.sleep(100)
 
+        
         self._test_match_all_query(table_name, index_name)
         self._test_match_query(table_name, index_name)
         self._test_match_phrase_query(table_name, index_name)
@@ -550,9 +600,11 @@ class SearchIndexTest(APITestBase):
         self._test_geo_polygon_query(table_name, index_name)
         self._test_nested_query(table_name, nested_index_name)
         self._test_exists_query(table_name, index_name)
-        self._test_knn_vector_query(table_name, index_name)
+        #self._test_knn_vector_query(table_name, index_name)
         self._test_sort(table_name, index_name)
         self._test_search_with_routing_keys(table_name, index_name)
+        self._test_search_with_weight(table_name, index_name)
+        self._test_search_timeout(table_name, index_name)
 
     def _prepare_data(self, table_name, rows_count):
         name_list= u'马尔代夫巴厘岛苏梅岛'

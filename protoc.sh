@@ -1,26 +1,49 @@
 #!/bin/bash
-
 set -e
 
-# 打印颜色
+# Print color
 YELLOW='\033[33m'
 GREEN='\033[32m'
 RED='\033[31m'
 RESET='\033[0m'
 
-CheckAndReplaceImportPathInPbPy() {
+binary_linux="bin/protoc-25.0-linux-x86_64/protoc"
+binary_osx="bin/protoc-25.0-osx-universal_binary/protoc"
+
+# Check the current system
+system=$(uname -s | tr '[:upper:]' '[:lower:]')
+arch=$(uname -m | tr '[:upper:]' '[:lower:]')
+
+# Determine the appropriate binary file
+if [ "$system" == "linux" ] && [ "$arch" == "x86_64" ]; then
+    binary=$binary_linux
+    echo "use linux "
+elif [ "$system" == "darwin" ]; then
+    binary=$binary_osx
+    echo "use osx"
+else
+    echo -e "${RED}当前系统既不是linux-x86_64，也不是osx。请到https://github.com/protocolbuffers/protobuf/releases/tag/ 下载可执行文件${RESET}"
+    exit 1
+fi
+
+chmod +x "$binary"
+
+echo "protoc 版本是: $(./$binary --version)"
+
+
+check_and_replace_import_path_in_pb_py() {
     proto_file=$1
     py_file=$2
-    # 检查是否存在py文件
+    # Check if the py file exists
     if [ -e "$py_file" ]; then
-        # 如果proto中包含import，修改生成py文件中的import路径
+        # If the proto contains import, modify the import path in the generated py file
         if grep -q '^import ' "$proto_file"; then
             cur_sec=$(date '+%s')
             tmp_file=/tmp/temp${cur_sec}.py
 
-            # 修改"import xxx_pb2"为"import tablestore.protobuf.xxx_pb2"
+            # Modify "import xxx_pb2" to "import tablestore.protobuf.xxx_pb2"
             sed 's/^import \([a-zA-Z0-9_]*\)_pb2/import tablestore.protobuf.\1_pb2/g' "$py_file" > "$tmp_file"
-            # 修改"from xxx_pb2 import"为"from tablestore.protobuf.xxx_pb2 import"
+            # Modify "from xxx_pb2 import" to "from tablestore.protobuf.xxx_pb2 import"
             sed 's/^from \([a-zA-Z0-9_]*\)_pb2 import/from tablestore.protobuf.\1_pb2 import/g' "$tmp_file" > "$py_file"
             
             rm -f $tmp_file
@@ -31,68 +54,15 @@ CheckAndReplaceImportPathInPbPy() {
     fi
 }
 
-DIR=$(cd $(dirname $0); pwd)
-cd ${DIR}
+./$binary --proto_path=tablestore/protobuf/ --python_out=tablestore/protobuf/ tablestore/protobuf/table_store.proto 
+./$binary --proto_path=tablestore/protobuf/ --python_out=tablestore/protobuf/ tablestore/protobuf/table_store_filter.proto 
+./$binary --proto_path=tablestore/protobuf/ --python_out=tablestore/protobuf/ tablestore/protobuf/search.proto 
+./$binary --proto_path=tablestore/protobuf/ --python_out=tablestore/protobuf/ tablestore/protobuf/timeseries.proto
 
-# 定义Protobuf的版本号
-PROTOC_VERSION="25.0"
+check_and_replace_import_path_in_pb_py tablestore/protobuf/table_store.proto tablestore/protobuf/table_store_pb2.py
+check_and_replace_import_path_in_pb_py tablestore/protobuf/table_store_filter.proto tablestore/protobuf/table_store_filter_pb2.py
+check_and_replace_import_path_in_pb_py tablestore/protobuf/search.proto tablestore/protobuf/search_pb2.py
+check_and_replace_import_path_in_pb_py tablestore/protobuf/timeseries.proto tablestore/protobuf/timeseries_pb2.py
 
-rm -rf protoc-${PROTOC_VERSION}
-mkdir -p protoc-${PROTOC_VERSION}
-
-wget -P protoc-${PROTOC_VERSION} https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip
-wget -P protoc-${PROTOC_VERSION} https://github.com/protocolbuffers/protobuf/releases/download/v${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-osx-universal_binary.zip
-
-unzip protoc-${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64.zip -d protoc-${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-linux-x86_64
-unzip protoc-${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-osx-universal_binary.zip -d protoc-${PROTOC_VERSION}/protoc-${PROTOC_VERSION}-osx-universal_binary
-
-# 定义目录和文件列表
-folder="protoc-${PROTOC_VERSION}"
-
-# 二进制文件
-binary_linux="protoc-${PROTOC_VERSION}-linux-x86_64/bin/protoc"
-binary_osx="protoc-${PROTOC_VERSION}-osx-universal_binary/bin/protoc"
-
-# proto文件列表
-proto_files=($(find ./tablestore -type f -name "*.proto"))
-
-# 检查当前系统
-system=$(uname -s | tr '[:upper:]' '[:lower:]')
-arch=$(uname -m | tr '[:upper:]' '[:lower:]')
-
-# 判断合适的二进制文件
-if [ "$system" == "linux" ] && [ "$arch" == "x86_64" ]; then
-    binary=$binary_linux
-elif [ "$system" == "darwin" ]; then
-    binary=$binary_osx
-else
-    echo -e "${RED}当前系统既不是linux-x86_64，也不是osx。请到https://github.com/protocolbuffers/protobuf/releases/tag/v${PROTOC_VERSION}下载可执行文件。${RESET}"
-    exit 1
-fi
-
-# 1. 复制proto文件到protoc目录
-for proto_file in "${proto_files[@]}"; do
-    cp "$proto_file" "$folder"
-done
-
-cd protoc-${PROTOC_VERSION}
-
-# 设置文件的可执行权限
-chmod +x "$binary"
-
-# 2. 编译proto文件并将生成的文件放在protoc目录
-for proto_file in "${proto_files[@]}"; do
-    proto_file=$(basename "$proto_file")
-    proto_base=$(basename "$proto_file" .proto)
-
-    command="./$binary $proto_file --python_out=../tablestore/protobuf/"
-    echo "执行命令: $command"
-    $command
-    py_file=../tablestore/protobuf/${proto_base}_pb2.py
-    CheckAndReplaceImportPathInPbPy $proto_file $py_file
-done
-
-cd ..
-rm -rf protoc-${PROTOC_VERSION}
 
 echo -e "${GREEN}所有命令执行完毕。${RESET}"

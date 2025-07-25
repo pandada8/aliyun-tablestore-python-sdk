@@ -31,7 +31,7 @@ class SQLResponseColumns(object):
             x = self._tab.Vector(o)
             x += flatbuffers.number_types.UOffsetTFlags.py_type(j) * 4
             x = self._tab.Indirect(x)
-            from dataprotocol.SQLResponseColumn import SQLResponseColumn
+            from tablestore.flatbuffer.dataprotocol.SQLResponseColumn import SQLResponseColumn
             obj = SQLResponseColumn()
             obj.Init(self._tab.Bytes, x)
             return obj
@@ -71,63 +71,3 @@ def AddRowCount(builder, rowCount):
 def SQLResponseColumnsEnd(builder): return builder.EndObject()
 def End(builder):
     return SQLResponseColumnsEnd(builder)
-import dataprotocol.SQLResponseColumn
-try:
-    from typing import List
-except:
-    pass
-
-class SQLResponseColumnsT(object):
-
-    # SQLResponseColumnsT
-    def __init__(self):
-        self.columns = None  # type: List[dataprotocol.SQLResponseColumn.SQLResponseColumnT]
-        self.rowCount = 0  # type: int
-
-    @classmethod
-    def InitFromBuf(cls, buf, pos):
-        sqlresponseColumns = SQLResponseColumns()
-        sqlresponseColumns.Init(buf, pos)
-        return cls.InitFromObj(sqlresponseColumns)
-
-    @classmethod
-    def InitFromPackedBuf(cls, buf, pos=0):
-        n = flatbuffers.encode.Get(flatbuffers.packer.uoffset, buf, pos)
-        return cls.InitFromBuf(buf, pos+n)
-
-    @classmethod
-    def InitFromObj(cls, sqlresponseColumns):
-        x = SQLResponseColumnsT()
-        x._UnPack(sqlresponseColumns)
-        return x
-
-    # SQLResponseColumnsT
-    def _UnPack(self, sqlresponseColumns):
-        if sqlresponseColumns is None:
-            return
-        if not sqlresponseColumns.ColumnsIsNone():
-            self.columns = []
-            for i in range(sqlresponseColumns.ColumnsLength()):
-                if sqlresponseColumns.Columns(i) is None:
-                    self.columns.append(None)
-                else:
-                    sQLResponseColumn_ = dataprotocol.SQLResponseColumn.SQLResponseColumnT.InitFromObj(sqlresponseColumns.Columns(i))
-                    self.columns.append(sQLResponseColumn_)
-        self.rowCount = sqlresponseColumns.RowCount()
-
-    # SQLResponseColumnsT
-    def Pack(self, builder):
-        if self.columns is not None:
-            columnslist = []
-            for i in range(len(self.columns)):
-                columnslist.append(self.columns[i].Pack(builder))
-            SQLResponseColumnsStartColumnsVector(builder, len(self.columns))
-            for i in reversed(range(len(self.columns))):
-                builder.PrependUOffsetTRelative(columnslist[i])
-            columns = builder.EndVector()
-        SQLResponseColumnsStart(builder)
-        if self.columns is not None:
-            SQLResponseColumnsAddColumns(builder, columns)
-        SQLResponseColumnsAddRowCount(builder, self.rowCount)
-        sqlresponseColumns = SQLResponseColumnsEnd(builder)
-        return sqlresponseColumns

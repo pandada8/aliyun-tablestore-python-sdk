@@ -34,28 +34,38 @@ Github安装
 
 1. 下载源码
 
-
 .. code-block:: bash
 
     $ git clone https://github.com/aliyun/aliyun-tablestore-python-sdk.git
 
-2. 安装
+2. 构建 whl (构建好的whl文件在dist目录下)
 
 .. code-block:: bash
 
-    $ python setup.py install
+    $ poetry build
+
+3. 安装
+
+.. code-block:: bash
+
+    $ pip install dist/tablestore-{替换为实际版本}-py3-none-any.whl
 
 
 源码安装
 --------
 
 1. 下载 SDK 发布包并解压
-2. 安装
-
+2. 构建 whl (构建好的whl文件在dist目录下)
 
 .. code-block:: bash
 
-    $ python setup.py install
+    $ poetry build
+
+3. 安装
+
+.. code-block:: bash
+
+    $ pip install dist/tablestore-{替换为实际版本}-py3-none-any.whl
 
 示例代码
 ---------
@@ -89,19 +99,7 @@ Github安装
 
 **注意：测试 case 中会有清理某个实例下所有表的动作，所以请使用专门的测试实例来测试。**
 
-1. 测试前准备
-
-.. code-block:: bash
-
-    $ /bin/bash tests_setup.sh
-
-2. 安装nosetests
-
-.. code-block:: bash
-
-    $ pip install nose
-
-3. 设置执行Case的配置
+1. 设置执行Case的配置
 
 .. code-block:: bash
 
@@ -110,25 +108,11 @@ Github安装
     $ export OTS_TEST_ENDPOINT=<tablestore service endpoint>
     $ export OTS_TEST_INSTANCE=<tablestore instance name>
 
-4. 运行case
-
-python3.8、Python3.9、python3.10、python3.11可使用以下命令
+2. 运行case
 
 .. code-block:: bash
 
-    $ export PYTHONPATH=$(pwd)/tests:$PYTHONPATH; nosetests tests/
-
-python3.12可使用以下命令
-
-.. code-block:: bash
-
-    $ /bin/bash tests_run.sh
-
-编译proto文件
-----------------
-.. code-block:: bash
-
-    $ /bin/bash protoc.sh
+    $ poetry run pytest tests
 
 贡献代码
 --------

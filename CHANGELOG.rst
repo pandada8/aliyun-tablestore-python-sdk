@@ -3,6 +3,18 @@ Tablestore SDK for Python 版本记录
 
 Python SDK 的版本号遵循 `Semantic Versioning <http://semver.org/>`_ 规则。
 
+Version 6.2.1
+-------------
+- Support SingleColumnRegexCondition filter
+
+Version 6.2.0
+-------------
+- 支持无 AK 方案，OTSClient 支持 credentials_provider 参数。
+- 使用 Poetry 管理项目，提高开发和发布效率。
+- Flatc 实时编译 fbs 文件。
+- 解决 dataprotocol 包不在 tablestore 项目下面的问题，避免包冲突。
+- 优化 ut 测试。
+
 Version 6.1.0
 -------------
 - Support some timeseries api.
