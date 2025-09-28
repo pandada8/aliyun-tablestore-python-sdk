@@ -2,7 +2,7 @@
 name = "tablestore"
 version = "6.3.0"
 description = "Aliyun TableStore(OTS) SDK"
-readme = "README.md"
+readme = "README.rst"
 license = "Apache License 2.0"
 homepage = "https://www.aliyun.com/product/ots"
 authors = ["xunjian.sl <xunjian.sl@alibaba-inc.com>"]
@@ -12,8 +12,8 @@ packages = [
 include = ["CHANGELOG.md"]
 
 [tool.poetry.dependencies]
-python = "^3.8"
-protobuf = ">=3.20.0, <=5.27.4"
+python = "^3.9"
+protobuf = "==6.31.1"
 urllib3 = ">=1.14"
 certifi = ">=2016.2.28"
 future = ">=0.16.0"
